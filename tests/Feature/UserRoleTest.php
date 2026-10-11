@@ -80,16 +80,16 @@ test('registration screen shows the role error', function () {
         ->assertSee(__('validation.in', ['attribute' => __('validation.attributes.role')]));
 });
 
-test('dashboard redirects each role to its home', function (UserRole $role, string $path) {
+test('dashboard redirects each role to its home, or to the event list until that page exists', function (UserRole $role, string $routeName) {
     $user = User::factory()->create(['role' => $role]);
 
     $this->actingAs($user)
         ->get(route('dashboard'))
-        ->assertRedirect($path);
+        ->assertRedirectToRoute(Route::has($routeName) ? $routeName : 'home');
 })->with([
-    'customer' => [UserRole::Customer, '/orders'],
-    'organizer' => [UserRole::Organizer, '/organizer/events'],
-    'admin' => [UserRole::Admin, '/admin/events'],
+    'customer' => [UserRole::Customer, 'orders.index'],
+    'organizer' => [UserRole::Organizer, 'organizer.events.index'],
+    'admin' => [UserRole::Admin, 'admin.events.index'],
 ]);
 
 test('customers cannot access organizer only routes', function () {

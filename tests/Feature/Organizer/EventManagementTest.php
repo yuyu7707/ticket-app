@@ -93,7 +93,6 @@ test('event input is validated', function (string $field, string $value, string 
     'venue is required' => ['venue', '', 'required'],
     'venue max 100' => ['venue', str_repeat('あ', 101), 'max'],
     'starts_at is required' => ['starts_at', '', 'required'],
-    'ends_at is required' => ['ends_at', '', 'required'],
     'ends_at equal to starts_at' => ['ends_at', '2026-12-01T10:00', 'after'],
     'ends_at cannot be before starts_at' => ['ends_at', '2026-12-01T09:00', 'after'],
 ]);
@@ -232,3 +231,16 @@ test('actions are authorized even after the edit page has been opened', function
     expect($event->title)->not->toBe('書き換え');
     expect($event->status)->toBe(EventStatus::Draft);
 })->with(['save', 'togglePublish', 'deleteEvent']);
+
+test('an event can be created without an end time', function () {
+    $organizer = User::factory()->organizer()->create();
+
+    $this->actingAs($organizer);
+
+    Livewire::test('pages::organizer.events.create')
+        ->set('form', [...validEventInput(), 'ends_at' => ''])
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(Event::sole()->ends_at)->toBeNull();
+});

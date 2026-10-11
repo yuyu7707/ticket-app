@@ -24,7 +24,7 @@ function validTicketTypeInput(): array
 }
 
 test('the edit page lists the event\'s ticket types', function () {
-    $event = Event::factory()->create();
+    $event = Event::factory()->create(['starts_at' => '2026-12-01 10:00']);
     TicketType::factory()->for($event)->create([
         'name' => '一般',
         'price' => 3000,
@@ -43,7 +43,7 @@ test('the edit page lists the event\'s ticket types', function () {
 });
 
 test('owners can add a ticket type', function () {
-    $event = Event::factory()->create();
+    $event = Event::factory()->create(['starts_at' => '2026-12-01 10:00']);
 
     $this->actingAs($event->organizer);
 
@@ -63,7 +63,7 @@ test('owners can add a ticket type', function () {
 });
 
 test('empty sales period is saved as null', function () {
-    $event = Event::factory()->create();
+    $event = Event::factory()->create(['starts_at' => '2026-12-01 10:00']);
 
     $this->actingAs($event->organizer);
 
@@ -79,7 +79,7 @@ test('empty sales period is saved as null', function () {
 });
 
 test('owners can edit a ticket type with the same form', function () {
-    $event = Event::factory()->create();
+    $event = Event::factory()->create(['starts_at' => '2026-12-01 10:00']);
     $ticketType = TicketType::factory()->for($event)->create(['name' => '一般', 'price' => 3000]);
 
     $this->actingAs($event->organizer);
@@ -98,7 +98,7 @@ test('owners can edit a ticket type with the same form', function () {
 });
 
 test('owners can delete a ticket type', function () {
-    $event = Event::factory()->create();
+    $event = Event::factory()->create(['starts_at' => '2026-12-01 10:00']);
     $ticketType = TicketType::factory()->for($event)->create();
 
     $this->actingAs($event->organizer);
@@ -110,7 +110,7 @@ test('owners can delete a ticket type', function () {
 });
 
 test('ticket types with pending orders only are deleted along with the orders', function () {
-    $event = Event::factory()->create();
+    $event = Event::factory()->create(['starts_at' => '2026-12-01 10:00']);
     [$ticketType, $otherTicketType] = TicketType::factory()->for($event)->count(2)->create();
     OrderItem::factory()->for(Order::factory()->for($event))->for($ticketType)->create();
     $otherOrder = Order::factory()->for($event)->create();
@@ -127,7 +127,7 @@ test('ticket types with pending orders only are deleted along with the orders', 
 });
 
 test('ticket types with orders to keep cannot be deleted', function (OrderStatus $status) {
-    $event = Event::factory()->create();
+    $event = Event::factory()->create(['starts_at' => '2026-12-01 10:00']);
     $ticketType = TicketType::factory()->for($event)->create();
     OrderItem::factory()
         ->for(Order::factory()->for($event)->create(['status' => $status]))
@@ -160,7 +160,7 @@ test('the last ticket type of a published event cannot be deleted', function () 
 });
 
 test('ticket type input is validated', function (string $field, string $value, string $rule) {
-    $event = Event::factory()->create();
+    $event = Event::factory()->create(['starts_at' => '2026-12-01 10:00']);
 
     $this->actingAs($event->organizer);
 
@@ -183,10 +183,11 @@ test('ticket type input is validated', function (string $field, string $value, s
     'capacity max 100000' => ['capacity', '100001', 'max'],
     'sales_end_at equal to sales_start_at' => ['sales_end_at', '2026-11-01T10:00', 'after'],
     'sales_end_at cannot be before sales_start_at' => ['sales_end_at', '2026-11-01T09:00', 'after'],
+    'sales_end_at cannot be after the event starts' => ['sales_end_at', '2026-12-01T10:01', 'before_or_equal'],
 ]);
 
 test('sales end can be set without a sales start', function () {
-    $event = Event::factory()->create();
+    $event = Event::factory()->create(['starts_at' => '2026-12-01 10:00']);
 
     $this->actingAs($event->organizer);
 
@@ -199,7 +200,7 @@ test('sales end can be set without a sales start', function () {
 });
 
 test('events without ticket types cannot be published', function () {
-    $event = Event::factory()->create();
+    $event = Event::factory()->create(['starts_at' => '2026-12-01 10:00']);
 
     $this->actingAs($event->organizer);
 
@@ -210,7 +211,7 @@ test('events without ticket types cannot be published', function () {
 });
 
 test('ticket type actions are forbidden for other organizers', function (string $method, bool $passesTicketTypeId) {
-    $event = Event::factory()->create();
+    $event = Event::factory()->create(['starts_at' => '2026-12-01 10:00']);
     $ticketType = TicketType::factory()->for($event)->create(['name' => '一般']);
 
     $this->actingAs($event->organizer);
@@ -231,7 +232,7 @@ test('ticket type actions are forbidden for other organizers', function (string 
 ]);
 
 test('ticket types of other events cannot be touched', function (string $method) {
-    $event = Event::factory()->create();
+    $event = Event::factory()->create(['starts_at' => '2026-12-01 10:00']);
     $otherTicketType = TicketType::factory()->create();
 
     $this->actingAs($event->organizer);
@@ -244,7 +245,7 @@ test('ticket types of other events cannot be touched', function (string $method)
 })->with(['editTicketType', 'deleteTicketType']);
 
 test('publishing an event without ticket types shows an error toast', function () {
-    $event = Event::factory()->create();
+    $event = Event::factory()->create(['starts_at' => '2026-12-01 10:00']);
 
     $this->actingAs($event->organizer);
 
@@ -255,7 +256,7 @@ test('publishing an event without ticket types shows an error toast', function (
 });
 
 test('a free ticket type with price 0 can be added', function () {
-    $event = Event::factory()->create();
+    $event = Event::factory()->create(['starts_at' => '2026-12-01 10:00']);
 
     $this->actingAs($event->organizer);
 

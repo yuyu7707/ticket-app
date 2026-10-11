@@ -30,6 +30,20 @@ class EventForm extends Form
     }
 
     /**
+     * Get the validated values as model attributes. An empty end becomes null.
+     *
+     * @return array{title: string, description: string, venue: string, starts_at: string, ends_at: string|null}
+     */
+    public function toAttributes(): array
+    {
+        $validated = $this->validate();
+
+        $validated['ends_at'] = $validated['ends_at'] !== '' ? $validated['ends_at'] : null;
+
+        return $validated;
+    }
+
+    /**
      * Get the validation rules for the event.
      *
      * @return array<string, array<int, string>>
@@ -41,7 +55,7 @@ class EventForm extends Form
             'description' => ['required', 'string'],
             'venue' => ['required', 'string', 'max:100'],
             'starts_at' => ['required', 'date'],
-            'ends_at' => ['required', 'date', 'after:starts_at'],
+            'ends_at' => ['nullable', 'date', 'after:starts_at'],
         ];
     }
 }

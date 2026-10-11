@@ -12,11 +12,6 @@ use Illuminate\Support\Facades\DB;
 class OrderService
 {
     /**
-     * Minutes a pending order keeps its tickets held.
-     */
-    public const PENDING_MINUTES = TicketType::PENDING_MINUTES;
-
-    /**
      * Maximum number of tickets per ticket type in one order.
      */
     public const MAX_QUANTITY = 10;
@@ -30,6 +25,10 @@ class OrderService
      */
     public function createOrder(User $user, Event $event, array $quantities): Order
     {
+        if (! $event->isPublished()) {
+            throw new PurchaseException('このイベントは購入できません。');
+        }
+
         $quantities = array_filter(
             array_map(fn (mixed $quantity) => filter_var($quantity, FILTER_VALIDATE_INT, FILTER_NULL_ON_FAILURE), $quantities),
             fn (?int $quantity) => $quantity !== 0,

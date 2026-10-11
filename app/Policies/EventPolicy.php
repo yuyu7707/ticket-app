@@ -10,6 +10,14 @@ use Illuminate\Auth\Access\Response;
 class EventPolicy
 {
     /**
+     * Only organizers have a list of their own events.
+     */
+    public function viewAny(User $user): bool
+    {
+        return $user->isOrganizer();
+    }
+
+    /**
      * Published events are public; drafts and unpublished events are visible only to the owner and administrators.
      */
     public function view(?User $user, Event $event): Response
@@ -21,6 +29,14 @@ class EventPolicy
         return $user !== null && ($user->isAdmin() || $event->isOwnedBy($user))
             ? Response::allow()
             : Response::denyAsNotFound();
+    }
+
+    /**
+     * Only published events can be bought, even by the owner and administrators.
+     */
+    public function purchase(?User $user, Event $event): Response
+    {
+        return $event->isPublished() ? Response::allow() : Response::denyAsNotFound();
     }
 
     /**

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\EventStatus;
 use App\Enums\OrderStatus;
 use App\Exceptions\PurchaseException;
 use App\Models\Event;
@@ -60,4 +61,46 @@ test('fails when more than the maximum quantity is requested', function () {
         ->toThrow(PurchaseException::class, '一般は1〜10枚の範囲で選んでください。');
 
     expect(Order::count())->toBe(0);
+});
+
+test('fails without creating an order when the event is not published', function (EventStatus $status) {
+    $this->event->forceFill(['status' => $status])->save();
+    $ticketType = TicketType::factory()->for($this->event)->create();
+
+    expect(fn () => app(OrderService::class)->createOrder($this->user, $this->event, [$ticketType->id => 1]))
+        ->toThrow(PurchaseException::class, 'このイベントは購入できません。');
+
+    expect(Order::count())->toBe(0);
+})->with([
+    'draft' => [EventStatus::Draft],
+    'unpublished' => [EventStatus::Unpublished],
+]);
+
+test('fails when the ticket type belongs to another event', function () {
+    $otherTicketType = TicketType::factory()->for(Event::factory()->published()->create(['starts_at' => now()->addMonth()]))->create();
+
+    expect(fn () => app(OrderService::class)->createOrder($this->user, $this->event, [$otherTicketType->id => 1]))
+        ->toThrow(PurchaseException::class, '選択した券種が見つかりません。');
+
+    expect(Order::count())->toBe(0);
+});
+
+test('fails when the quantity is not a positive whole number', function (string $quantity) {
+    $ticketType = TicketType::factory()->for($this->event)->create();
+
+    expect(fn () => app(OrderService::class)->createOrder($this->user, $this->event, [$ticketType->id => $quantity]))
+        ->toThrow(PurchaseException::class, '一般は1〜10枚の範囲で選んでください。');
+
+    expect(Order::count())->toBe(0);
+})->with([
+    'negative' => ['-1'],
+    'not a number' => ['abc'],
+    'decimal' => ['1.5'],
+]);
+
+test('fails when every quantity is zero', function () {
+    $ticketType = TicketType::factory()->for($this->event)->create();
+
+    expect(fn () => app(OrderService::class)->createOrder($this->user, $this->event, [$ticketType->id => 0]))
+        ->toThrow(PurchaseException::class, '枚数を選んでください。');
 });

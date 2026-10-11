@@ -14,10 +14,10 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('dashboard', fn (Request $request): RedirectResponse => redirect(match ($request->user()->role) {
-        UserRole::Admin => '/admin/events',
-        UserRole::Organizer => '/organizer/events',
-        UserRole::Customer => '/orders',
+    Route::get('dashboard', fn (Request $request): RedirectResponse => redirect()->route(match ($request->user()->role) {
+        UserRole::Admin => Route::has('admin.events.index') ? 'admin.events.index' : 'home',
+        UserRole::Organizer => 'organizer.events.index',
+        UserRole::Customer => Route::has('orders.index') ? 'orders.index' : 'home',
     }))->name('dashboard');
 });
 

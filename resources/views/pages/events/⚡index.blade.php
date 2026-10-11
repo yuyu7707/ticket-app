@@ -56,7 +56,7 @@ new #[Title('イベント一覧')] class extends Component {
 
                             @if ($event->ticket_types_min_price !== null)
                                 <flux:text variant="strong" class="mt-auto pt-2 text-lg font-semibold">
-                                    {{ (int) $event->ticket_types_min_price === 0 ? '無料' : number_format($event->ticket_types_min_price).'円〜' }}
+                                    <x-yen :amount="$event->ticket_types_min_price" suffix="〜" />
                                 </flux:text>
                             @endif
                         </div>

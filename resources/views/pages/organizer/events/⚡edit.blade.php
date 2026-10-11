@@ -44,7 +44,7 @@ new #[Title('イベント編集')] class extends Component {
     {
         $this->authorize('update', $this->event);
 
-        $this->event->update($this->form->validate());
+        $this->event->update($this->form->toAttributes());
 
         Flux::toast(variant: 'success', text: '保存しました。');
     }
@@ -236,7 +236,7 @@ new #[Title('イベント編集')] class extends Component {
                     @foreach ($this->ticketTypes as $ticketType)
                         <flux:table.row :key="$ticketType->id">
                             <flux:table.cell variant="strong">{{ $ticketType->name }}</flux:table.cell>
-                            <flux:table.cell align="end">{{ number_format($ticketType->price) }}円</flux:table.cell>
+                            <flux:table.cell align="end"><x-yen :amount="$ticketType->price" /></flux:table.cell>
                             <flux:table.cell align="end">{{ number_format($ticketType->capacity) }}</flux:table.cell>
                             <flux:table.cell>
                                 {{ $ticketType->sales_start_at?->isoFormat('M月D日(ddd) HH:mm') ?? 'すぐ' }}

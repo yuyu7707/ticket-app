@@ -7,5 +7,5 @@
 <div class="grid gap-6 sm:grid-cols-2">
     <flux:input wire:model="form.starts_at" label="開始日時" type="datetime-local" required />
 
-    <flux:input wire:model="form.ends_at" label="終了日時" type="datetime-local" required />
+    <flux:input wire:model="form.ends_at" label="終了日時（任意）" type="datetime-local" />
 </div>

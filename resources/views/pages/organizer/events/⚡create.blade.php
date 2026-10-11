@@ -25,9 +25,7 @@ new #[Title('イベント登録')] class extends Component {
     {
         $this->authorize('create', Event::class);
 
-        $validated = $this->form->validate();
-
-        $event = Auth::user()->events()->create($validated);
+        $event = Auth::user()->events()->create($this->form->toAttributes());
 
         Flux::toast(variant: 'success', text: '下書きとして保存しました。');
 

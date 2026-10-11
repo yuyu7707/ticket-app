@@ -9,6 +9,14 @@ use Livewire\Component;
 
 new #[Title('イベント管理')] class extends Component {
     /**
+     * Mount the component.
+     */
+    public function mount(): void
+    {
+        $this->authorize('viewAny', Event::class);
+    }
+
+    /**
      * Get the events organized by the current user.
      *
      * @return Collection<int, Event>

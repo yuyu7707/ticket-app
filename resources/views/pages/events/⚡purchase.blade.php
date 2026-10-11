@@ -8,9 +8,11 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 
 new class extends Component {
+    #[Locked]
     public Event $event;
 
     /**
@@ -18,18 +20,15 @@ new class extends Component {
      *
      * @var array<int, int>
      */
+    #[Locked]
     public array $quantities = [];
-
-    public ?string $errorMessage = null;
 
     /**
      * Load the quantities chosen on the event page, keeping only this event's ticket types.
      */
     public function mount(Event $event): void
     {
-        $this->authorize('view', $event);
-
-        abort_unless($event->isPublished(), 404);
+        $this->authorize('purchase', $event);
 
         $this->event = $event;
 
@@ -73,7 +72,7 @@ new class extends Component {
      */
     public function pay(OrderService $orderService): void
     {
-        $this->authorize('view', $this->event);
+        $this->authorize('purchase', $this->event);
 
         if (! session()->has("purchase.{$this->event->id}")) {
             $this->redirectRoute('events.show', $this->event, navigate: true);
@@ -84,7 +83,7 @@ new class extends Component {
         try {
             $order = $orderService->createOrder(Auth::user(), $this->event, $this->quantities);
         } catch (PurchaseException $exception) {
-            $this->errorMessage = $exception->getMessage();
+            $this->addError('purchase', $exception->getMessage());
 
             return;
         }
@@ -111,9 +110,9 @@ new class extends Component {
         <flux:text>{{ $event->title }}（{{ $event->starts_at->isoFormat('M月D日(ddd) HH:mm') }}）</flux:text>
     </div>
 
-    @if ($errorMessage)
-        <flux:callout variant="danger" icon="exclamation-triangle" :heading="$errorMessage" />
-    @endif
+    @error('purchase')
+        <flux:callout variant="danger" icon="exclamation-triangle" :heading="$message" />
+    @enderror
 
     <flux:table>
         <flux:table.columns>
@@ -128,15 +127,15 @@ new class extends Component {
                 @php($subtotal = $ticketType->price * $quantities[$ticketType->id])
                 <flux:table.row :key="$ticketType->id">
                     <flux:table.cell variant="strong">{{ $ticketType->name }}</flux:table.cell>
-                    <flux:table.cell align="end">{{ $ticketType->price === 0 ? '無料' : number_format($ticketType->price).'円' }}</flux:table.cell>
+                    <flux:table.cell align="end"><x-yen :amount="$ticketType->price" /></flux:table.cell>
                     <flux:table.cell align="end">{{ $quantities[$ticketType->id] }}枚</flux:table.cell>
-                    <flux:table.cell align="end">{{ $subtotal === 0 ? '無料' : number_format($subtotal).'円' }}</flux:table.cell>
+                    <flux:table.cell align="end"><x-yen :amount="$subtotal" /></flux:table.cell>
                 </flux:table.row>
             @endforeach
 
             <flux:table.row>
                 <flux:table.cell variant="strong" colspan="3">合計</flux:table.cell>
-                <flux:table.cell variant="strong" align="end" data-test="order-total">{{ number_format($this->total) }}円</flux:table.cell>
+                <flux:table.cell variant="strong" align="end" data-test="order-total"><x-yen :amount="$this->total" /></flux:table.cell>
             </flux:table.row>
         </flux:table.rows>
     </flux:table>

@@ -30,11 +30,6 @@ class TicketType extends Model
     use HasFactory;
 
     /**
-     * Minutes a pending order keeps its tickets held.
-     */
-    public const PENDING_MINUTES = 15;
-
-    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -70,7 +65,7 @@ class TicketType extends Model
     }
 
     /**
-     * Get the number of tickets left: capacity minus paid orders and pending orders created within PENDING_MINUTES.
+     * Get the number of tickets left: capacity minus paid orders and pending orders created within the hold minutes.
      */
     public function remaining(): int
     {
@@ -79,7 +74,7 @@ class TicketType extends Model
                 $query->where('status', OrderStatus::Paid)
                     ->orWhere(fn (Builder $query) => $query
                         ->where('status', OrderStatus::Pending)
-                        ->where('created_at', '>', now()->subMinutes(self::PENDING_MINUTES)));
+                        ->where('created_at', '>', now()->subMinutes(config('tickets.pending_hold_minutes'))));
             })
             ->sum('quantity');
 
@@ -97,7 +92,7 @@ class TicketType extends Model
     }
 
     /**
-     * Sales start immediately when no start is set, and end when the event starts when no end is set.
+     * Sales start immediately when no start is set, and end at the sales end or when the event starts, whichever is earlier.
      */
     public function isOnSale(): bool
     {
@@ -107,6 +102,10 @@ class TicketType extends Model
             return false;
         }
 
-        return $now->lt($this->sales_end_at ?? $this->event->starts_at);
+        $salesEndAt = $this->sales_end_at !== null && $this->sales_end_at->lt($this->event->starts_at)
+            ? $this->sales_end_at
+            : $this->event->starts_at;
+
+        return $now->lt($salesEndAt);
     }
 }

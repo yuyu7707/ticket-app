@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\EventStatus;
 use App\Enums\OrderStatus;
 use App\Models\Event;
 use App\Models\Order;
@@ -115,7 +116,7 @@ test('paying shows an error without creating an order when the tickets run out a
         ->create(['quantity' => 1]);
 
     $component->call('pay')
-        ->assertSet('errorMessage', '一般は残り1枚です。')
+        ->assertHasErrors('purchase')
         ->assertSee('一般は残り1枚です。')
         ->assertNoRedirect();
 
@@ -138,7 +139,7 @@ test('the buyer can see the complete page', function () {
     $this->actingAs($this->user)
         ->get(route('orders.complete', $order))
         ->assertOk()
-        ->assertSee('注文を受け付けました（支払いは平日課題で実装）');
+        ->assertSee('注文を受け付けました');
 });
 
 test('other users cannot see the complete page of someone else\'s order', function () {
@@ -147,4 +148,57 @@ test('other users cannot see the complete page of someone else\'s order', functi
     $this->actingAs(User::factory()->create())
         ->get(route('orders.complete', $order))
         ->assertForbidden();
+});
+
+test('paying is not found and creates no order when the event stops being published after opening the page', function (EventStatus $status) {
+    $ticketType = TicketType::factory()->for($this->event)->create();
+
+    $this->actingAs($this->event->organizer)
+        ->withSession(["purchase.{$this->event->id}" => [$ticketType->id => 1]]);
+
+    $component = Livewire::test('pages::events.purchase', ['event' => $this->event]);
+
+    $this->event->forceFill(['status' => $status])->save();
+
+    $component->call('pay')->assertStatus(404);
+
+    expect(Order::count())->toBe(0);
+})->with([
+    'draft' => [EventStatus::Draft],
+    'unpublished' => [EventStatus::Unpublished],
+]);
+
+test('proceeding is not found for events that are not published', function (EventStatus $status) {
+    $event = Event::factory()->create(['status' => $status, 'starts_at' => now()->addMonth()]);
+    $ticketType = TicketType::factory()->for($event)->create();
+
+    $this->actingAs($event->organizer);
+
+    Livewire::test('pages::events.show', ['event' => $event])
+        ->set('quantities', [$ticketType->id => '1'])
+        ->call('proceed')
+        ->assertStatus(404);
+
+    expect(session()->has("purchase.{$event->id}"))->toBeFalse();
+})->with([
+    'draft' => [EventStatus::Draft],
+    'unpublished' => [EventStatus::Unpublished],
+]);
+
+test('the event organizer and admins can see the complete page', function (callable $makeViewer) {
+    $order = Order::factory()->for($this->user)->for($this->event)->create();
+
+    $this->actingAs($makeViewer($this->event))
+        ->get(route('orders.complete', $order))
+        ->assertOk();
+})->with([
+    'organizer' => [fn (Event $event) => $event->organizer],
+    'admin' => [fn () => User::factory()->admin()->create()],
+]);
+
+test('guests are redirected to the login page from the complete page', function () {
+    $order = Order::factory()->for($this->user)->for($this->event)->create();
+
+    $this->get(route('orders.complete', $order))
+        ->assertRedirect(route('login'));
 });

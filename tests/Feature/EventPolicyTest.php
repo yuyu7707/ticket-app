@@ -53,3 +53,28 @@ test('only admins can unpublish the event', function () {
     expect(Gate::forUser(User::factory()->admin()->create())->allows('unpublish', $event))->toBeTrue();
     expect(Gate::forUser($event->organizer)->allows('unpublish', $event))->toBeFalse();
 });
+
+test('published events can be bought by anyone', function () {
+    $event = Event::factory()->published()->create();
+
+    expect(Gate::forUser(null)->allows('purchase', $event))->toBeTrue();
+    expect(Gate::forUser(User::factory()->create())->allows('purchase', $event))->toBeTrue();
+});
+
+test('draft and unpublished events cannot be bought even by the owner and admins', function (EventStatus $status) {
+    $event = Event::factory()->create(['status' => $status]);
+
+    expect(Gate::forUser(null)->allows('purchase', $event))->toBeFalse();
+    expect(Gate::forUser(User::factory()->create())->allows('purchase', $event))->toBeFalse();
+    expect(Gate::forUser($event->organizer)->allows('purchase', $event))->toBeFalse();
+    expect(Gate::forUser(User::factory()->admin()->create())->allows('purchase', $event))->toBeFalse();
+})->with([
+    'draft' => [EventStatus::Draft],
+    'unpublished' => [EventStatus::Unpublished],
+]);
+
+test('only organizers can view the list of their events', function () {
+    expect(Gate::forUser(User::factory()->organizer()->create())->allows('viewAny', Event::class))->toBeTrue();
+    expect(Gate::forUser(User::factory()->create())->allows('viewAny', Event::class))->toBeFalse();
+    expect(Gate::forUser(User::factory()->admin()->create())->allows('viewAny', Event::class))->toBeFalse();
+});

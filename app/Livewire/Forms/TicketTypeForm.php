@@ -61,12 +61,19 @@ class TicketTypeForm extends Form
      */
     protected function rules(): array
     {
+        $eventStartsAt = $this->getComponent()->event->starts_at;
+
         return [
             'name' => ['required', 'string', 'max:50'],
             'price' => ['required', 'integer', 'min:0', 'max:1000000'],
             'capacity' => ['required', 'integer', 'min:1', 'max:100000'],
             'sales_start_at' => ['nullable', 'date'],
-            'sales_end_at' => ['nullable', 'date', Rule::when($this->sales_start_at !== '', 'after:sales_start_at')],
+            'sales_end_at' => [
+                'nullable',
+                'date',
+                Rule::when($this->sales_start_at !== '', 'after:sales_start_at'),
+                'before_or_equal:'.$eventStartsAt->format('Y-m-d H:i:s'),
+            ],
         ];
     }
 }

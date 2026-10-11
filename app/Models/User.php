@@ -45,7 +45,7 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
      * @var array<string, mixed>
      */
     protected $attributes = [
-        'role' => 'customer',
+        'role' => UserRole::Customer->value,
     ];
 
     /**

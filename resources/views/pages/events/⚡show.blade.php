@@ -54,7 +54,7 @@ new class extends Component {
      */
     public function proceed(): void
     {
-        abort_unless($this->event->isPublished(), 404);
+        $this->authorize('purchase', $this->event);
 
         $quantities = array_filter(array_map('intval', $this->quantities), fn (int $quantity) => $quantity > 0);
 
@@ -134,7 +134,7 @@ new class extends Component {
                             @php($remaining = $ticketType->remaining())
                             <flux:table.row :key="$ticketType->id">
                                 <flux:table.cell variant="strong">{{ $ticketType->name }}</flux:table.cell>
-                                <flux:table.cell>{{ $ticketType->price === 0 ? '無料' : number_format($ticketType->price).'円' }}</flux:table.cell>
+                                <flux:table.cell><x-yen :amount="$ticketType->price" /></flux:table.cell>
                                 <flux:table.cell>
                                     @if ($remaining === 0)
                                         <flux:badge size="sm" color="red">売り切れ</flux:badge>

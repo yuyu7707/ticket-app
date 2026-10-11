@@ -2,6 +2,7 @@
 
 use App\Enums\UserRole;
 use App\Models\User;
+use Illuminate\Support\Facades\Route;
 
 test('guests see the login and register links', function () {
     $view = $this->blade('<x-layouts::app>本文</x-layouts::app>');
@@ -18,7 +19,16 @@ test('the navigation depends on the role', function (string $role, array $visibl
 
     $view = $this->blade('<x-layouts::app>本文</x-layouts::app>');
 
+    // These links are hidden until their pages exist.
+    $routeNames = ['マイチケット' => 'orders.index', 'イベント管理' => 'admin.events.index', 'ユーザー管理' => 'admin.users.index'];
+
     foreach ($visible as $text) {
+        if (isset($routeNames[$text]) && ! Route::has($routeNames[$text])) {
+            $view->assertDontSee($text);
+
+            continue;
+        }
+
         $view->assertSee($text);
     }
 

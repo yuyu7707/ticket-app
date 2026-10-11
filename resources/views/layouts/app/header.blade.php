@@ -15,9 +15,11 @@
                 </flux:navbar.item>
 
                 @auth
-                    <flux:navbar.item icon="ticket" :href="url('/orders')" :current="request()->is('orders*')" wire:navigate>
-                        マイチケット
-                    </flux:navbar.item>
+                    @if (Route::has('orders.index'))
+                        <flux:navbar.item icon="ticket" :href="route('orders.index')" :current="request()->routeIs('orders.*')" wire:navigate>
+                            マイチケット
+                        </flux:navbar.item>
+                    @endif
 
                     @if (auth()->user()->isOrganizer())
                         <flux:navbar.item icon="clipboard-document-list" :href="route('organizer.events.index')" :current="request()->routeIs('organizer.*')" wire:navigate>
@@ -26,12 +28,16 @@
                     @endif
 
                     @if (auth()->user()->isAdmin())
-                        <flux:navbar.item icon="shield-check" :href="url('/admin/events')" :current="request()->is('admin/events*')" wire:navigate>
-                            イベント管理
-                        </flux:navbar.item>
-                        <flux:navbar.item icon="users" :href="url('/admin/users')" :current="request()->is('admin/users*')" wire:navigate>
-                            ユーザー管理
-                        </flux:navbar.item>
+                        @if (Route::has('admin.events.index'))
+                            <flux:navbar.item icon="shield-check" :href="route('admin.events.index')" :current="request()->routeIs('admin.events.*')" wire:navigate>
+                                イベント管理
+                            </flux:navbar.item>
+                        @endif
+                        @if (Route::has('admin.users.index'))
+                            <flux:navbar.item icon="users" :href="route('admin.users.index')" :current="request()->routeIs('admin.users.*')" wire:navigate>
+                                ユーザー管理
+                            </flux:navbar.item>
+                        @endif
                     @endif
 
                     <flux:navbar.item icon="cog" :href="route('profile.edit')" :current="request()->is('settings*')" wire:navigate>
@@ -105,9 +111,11 @@
                 </flux:sidebar.item>
 
                 @auth
-                    <flux:sidebar.item icon="ticket" :href="url('/orders')" :current="request()->is('orders*')" wire:navigate>
-                        マイチケット
-                    </flux:sidebar.item>
+                    @if (Route::has('orders.index'))
+                        <flux:sidebar.item icon="ticket" :href="route('orders.index')" :current="request()->routeIs('orders.*')" wire:navigate>
+                            マイチケット
+                        </flux:sidebar.item>
+                    @endif
 
                     @if (auth()->user()->isOrganizer())
                         <flux:sidebar.item icon="clipboard-document-list" :href="route('organizer.events.index')" :current="request()->routeIs('organizer.*')" wire:navigate>
@@ -116,12 +124,16 @@
                     @endif
 
                     @if (auth()->user()->isAdmin())
-                        <flux:sidebar.item icon="shield-check" :href="url('/admin/events')" :current="request()->is('admin/events*')" wire:navigate>
-                            イベント管理
-                        </flux:sidebar.item>
-                        <flux:sidebar.item icon="users" :href="url('/admin/users')" :current="request()->is('admin/users*')" wire:navigate>
-                            ユーザー管理
-                        </flux:sidebar.item>
+                        @if (Route::has('admin.events.index'))
+                            <flux:sidebar.item icon="shield-check" :href="route('admin.events.index')" :current="request()->routeIs('admin.events.*')" wire:navigate>
+                                イベント管理
+                            </flux:sidebar.item>
+                        @endif
+                        @if (Route::has('admin.users.index'))
+                            <flux:sidebar.item icon="users" :href="route('admin.users.index')" :current="request()->routeIs('admin.users.*')" wire:navigate>
+                                ユーザー管理
+                            </flux:sidebar.item>
+                        @endif
                     @endif
 
                     <flux:sidebar.item icon="cog" :href="route('profile.edit')" :current="request()->is('settings*')" wire:navigate>

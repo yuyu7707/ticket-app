@@ -22,6 +22,7 @@ test('ticket types are on sale only within the sales period', function (string $
     'at the sales end' => ['2026-11-20 00:00', '2026-11-01 00:00', '2026-11-20 00:00', false],
     'no period before the event starts' => ['2026-11-30 12:00', null, null, true],
     'no end at the event start' => ['2026-12-01 10:00', '2026-11-01 00:00', null, false],
+    'sales end after the event start' => ['2026-12-01 10:00', '2026-11-01 00:00', '2026-12-31 00:00', false],
 ]);
 
 test('remaining counts paid orders and pending orders within the hold time', function () {
