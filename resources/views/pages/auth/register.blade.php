@@ -30,6 +30,21 @@
                 placeholder="email@example.com"
             />
 
+            <!-- Role -->
+            <flux:field>
+                <flux:label>利用目的</flux:label>
+                <flux:radio.group name="role">
+                    @foreach (\App\Enums\UserRole::registerable() as $role)
+                        <flux:radio
+                            :value="$role->value"
+                            :label="$role->label()"
+                            :checked="old('role', \App\Enums\UserRole::Customer->value) === $role->value"
+                        />
+                    @endforeach
+                </flux:radio.group>
+                <flux:error name="role" />
+            </flux:field>
+
             <!-- Password -->
             <flux:input
                 name="password"
