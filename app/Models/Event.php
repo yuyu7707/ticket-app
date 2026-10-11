@@ -1,0 +1,104 @@
+<?php
+
+namespace App\Models;
+
+use App\Enums\EventStatus;
+use Database\Factories\EventFactory;
+use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
+
+/**
+ * @property int $id
+ * @property int $organizer_id
+ * @property string $title
+ * @property string $description
+ * @property string $venue
+ * @property Carbon $starts_at
+ * @property Carbon|null $ends_at
+ * @property EventStatus $status
+ * @property string|null $image_path
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ */
+#[Fillable(['title', 'description', 'venue', 'starts_at', 'ends_at'])]
+class Event extends Model
+{
+    /** @use HasFactory<EventFactory> */
+    use HasFactory;
+
+    /**
+     * The model's default values for attributes.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'status' => EventStatus::Draft->value,
+    ];
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'starts_at' => 'datetime',
+            'ends_at' => 'datetime',
+            'status' => EventStatus::class,
+        ];
+    }
+
+    /**
+     * Get the organizer who owns the event.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function organizer(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'organizer_id');
+    }
+
+    /**
+     * Scope a query to only include published events.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function published(Builder $query): void
+    {
+        $query->where('status', EventStatus::Published);
+    }
+
+    /**
+     * Scope a query to events that have not started yet, nearest first.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function upcoming(Builder $query): void
+    {
+        $query->where('starts_at', '>', now())->orderBy('starts_at');
+    }
+
+    /**
+     * Determine if the event is published.
+     */
+    public function isPublished(): bool
+    {
+        return $this->status === EventStatus::Published;
+    }
+
+    /**
+     * Determine if the given user owns the event.
+     */
+    public function isOwnedBy(User $user): bool
+    {
+        return $this->organizer_id === $user->id;
+    }
+}
