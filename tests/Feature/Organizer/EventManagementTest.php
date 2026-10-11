@@ -3,6 +3,7 @@
 use App\Enums\EventStatus;
 use App\Enums\UserRole;
 use App\Models\Event;
+use App\Models\TicketType;
 use App\Models\User;
 use Livewire\Livewire;
 
@@ -115,6 +116,7 @@ test('owners can update their event', function () {
 
 test('owners can switch between draft and published', function () {
     $event = Event::factory()->create();
+    TicketType::factory()->for($event)->create();
 
     $this->actingAs($event->organizer);
 
