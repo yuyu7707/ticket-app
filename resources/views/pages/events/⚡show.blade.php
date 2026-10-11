@@ -2,6 +2,7 @@
 
 use App\Models\Event;
 use App\Models\TicketType;
+use App\Services\OrderService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
@@ -9,6 +10,13 @@ use Livewire\Component;
 
 new class extends Component {
     public Event $event;
+
+    /**
+     * Selected quantities keyed by ticket type ID.
+     *
+     * @var array<int|string, int|string>
+     */
+    public array $quantities = [];
 
     /**
      * Drafts and unpublished events return 404 to anyone but the owner and administrators.
@@ -28,7 +36,37 @@ new class extends Component {
     #[Computed]
     public function ticketTypes(): Collection
     {
-        return $this->event->ticketTypes()->orderBy('price')->get();
+        return $this->event->ticketTypes()->orderBy('price')->get()->each->setRelation('event', $this->event);
+    }
+
+    /**
+     * Get the maximum number of tickets per ticket type in one order.
+     */
+    #[Computed]
+    public function maxQuantity(): int
+    {
+        return OrderService::MAX_QUANTITY;
+    }
+
+    /**
+     * Keep the selected quantities in the session and move on to the purchase page.
+     * Detailed checks are left to OrderService on the purchase page.
+     */
+    public function proceed(): void
+    {
+        abort_unless($this->event->isPublished(), 404);
+
+        $quantities = array_filter(array_map('intval', $this->quantities), fn (int $quantity) => $quantity > 0);
+
+        if ($quantities === []) {
+            $this->addError('quantities', '枚数を選んでください。');
+
+            return;
+        }
+
+        session()->put("purchase.{$this->event->id}", $quantities);
+
+        $this->redirectRoute('events.purchase', $this->event);
     }
 
     public function render(): View
@@ -79,36 +117,60 @@ new class extends Component {
         @if ($this->ticketTypes->isEmpty())
             <flux:text>券種は準備中です。</flux:text>
         @else
-            <flux:table>
-                <flux:table.columns>
-                    <flux:table.column>券種</flux:table.column>
-                    <flux:table.column>価格</flux:table.column>
-                    <flux:table.column>残り</flux:table.column>
-                    <flux:table.column>販売期間</flux:table.column>
-                </flux:table.columns>
+            <form wire:submit="proceed" class="space-y-4">
+                <flux:table>
+                    <flux:table.columns>
+                        <flux:table.column>券種</flux:table.column>
+                        <flux:table.column>価格</flux:table.column>
+                        <flux:table.column>残り</flux:table.column>
+                        <flux:table.column>販売期間</flux:table.column>
+                        @if ($event->isPublished())
+                            <flux:table.column>枚数</flux:table.column>
+                        @endif
+                    </flux:table.columns>
 
-                <flux:table.rows>
-                    @foreach ($this->ticketTypes as $ticketType)
-                        @php($remaining = $ticketType->remaining())
-                        <flux:table.row :key="$ticketType->id">
-                            <flux:table.cell variant="strong">{{ $ticketType->name }}</flux:table.cell>
-                            <flux:table.cell>{{ $ticketType->price === 0 ? '無料' : number_format($ticketType->price).'円' }}</flux:table.cell>
-                            <flux:table.cell>
-                                @if ($remaining === 0)
-                                    <flux:badge size="sm" color="red">売り切れ</flux:badge>
-                                @else
-                                    残り{{ number_format($remaining) }}枚
+                    <flux:table.rows>
+                        @foreach ($this->ticketTypes as $ticketType)
+                            @php($remaining = $ticketType->remaining())
+                            <flux:table.row :key="$ticketType->id">
+                                <flux:table.cell variant="strong">{{ $ticketType->name }}</flux:table.cell>
+                                <flux:table.cell>{{ $ticketType->price === 0 ? '無料' : number_format($ticketType->price).'円' }}</flux:table.cell>
+                                <flux:table.cell>
+                                    @if ($remaining === 0)
+                                        <flux:badge size="sm" color="red">売り切れ</flux:badge>
+                                    @else
+                                        残り{{ number_format($remaining) }}枚
+                                    @endif
+                                </flux:table.cell>
+                                <flux:table.cell>
+                                    {{ $ticketType->sales_start_at?->isoFormat('M月D日(ddd) HH:mm') ?? 'すぐ' }}
+                                    〜
+                                    {{ $ticketType->sales_end_at?->isoFormat('M月D日(ddd) HH:mm') ?? 'イベント開始まで' }}
+                                </flux:table.cell>
+                                @if ($event->isPublished())
+                                    <flux:table.cell>
+                                        @if (! $ticketType->isOnSale())
+                                            <flux:badge size="sm" color="zinc">販売期間外</flux:badge>
+                                        @elseif ($remaining > 0)
+                                            <flux:select wire:model="quantities.{{ $ticketType->id }}" size="sm" class="w-24" aria-label="{{ $ticketType->name }}の枚数">
+                                                @foreach (range(0, min($this->maxQuantity, $remaining)) as $quantity)
+                                                    <flux:select.option :value="$quantity">{{ $quantity }}枚</flux:select.option>
+                                                @endforeach
+                                            </flux:select>
+                                        @endif
+                                    </flux:table.cell>
                                 @endif
-                            </flux:table.cell>
-                            <flux:table.cell>
-                                {{ $ticketType->sales_start_at?->isoFormat('M月D日(ddd) HH:mm') ?? 'すぐ' }}
-                                〜
-                                {{ $ticketType->sales_end_at?->isoFormat('M月D日(ddd) HH:mm') ?? 'イベント開始まで' }}
-                            </flux:table.cell>
-                        </flux:table.row>
-                    @endforeach
-                </flux:table.rows>
-            </flux:table>
+                            </flux:table.row>
+                        @endforeach
+                    </flux:table.rows>
+                </flux:table>
+
+                @if ($event->isPublished())
+                    <flux:error name="quantities" />
+
+                    <flux:button variant="primary" type="submit" data-test="proceed-button">購入手続きへ進む</flux:button>
+                @endif
+            </form>
         @endif
     </div>
 </section>
