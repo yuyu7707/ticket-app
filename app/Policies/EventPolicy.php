@@ -5,19 +5,22 @@ namespace App\Policies;
 use App\Enums\EventStatus;
 use App\Models\Event;
 use App\Models\User;
+use Illuminate\Auth\Access\Response;
 
 class EventPolicy
 {
     /**
      * Published events are public; drafts and unpublished events are visible only to the owner and administrators.
      */
-    public function view(?User $user, Event $event): bool
+    public function view(?User $user, Event $event): Response
     {
         if ($event->isPublished()) {
-            return true;
+            return Response::allow();
         }
 
-        return $user !== null && ($user->isAdmin() || $event->isOwnedBy($user));
+        return $user !== null && ($user->isAdmin() || $event->isOwnedBy($user))
+            ? Response::allow()
+            : Response::denyAsNotFound();
     }
 
     /**

@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Enums\OrderStatus;
 use Database\Factories\TicketTypeFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
@@ -25,6 +28,11 @@ class TicketType extends Model
 {
     /** @use HasFactory<TicketTypeFactory> */
     use HasFactory;
+
+    /**
+     * Minutes a pending order keeps its tickets held.
+     */
+    public const PENDING_MINUTES = 15;
 
     /**
      * Get the attributes that should be cast.
@@ -49,6 +57,33 @@ class TicketType extends Model
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);
+    }
+
+    /**
+     * Get the order items that bought the ticket type.
+     *
+     * @return HasMany<OrderItem, $this>
+     */
+    public function orderItems(): HasMany
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+
+    /**
+     * Get the number of tickets left: capacity minus paid orders and pending orders created within PENDING_MINUTES.
+     */
+    public function remaining(): int
+    {
+        $held = (int) $this->orderItems()
+            ->whereHas('order', function (Builder $query) {
+                $query->where('status', OrderStatus::Paid)
+                    ->orWhere(fn (Builder $query) => $query
+                        ->where('status', OrderStatus::Pending)
+                        ->where('created_at', '>', now()->subMinutes(self::PENDING_MINUTES)));
+            })
+            ->sum('quantity');
+
+        return max(0, $this->capacity - $held);
     }
 
     /**
