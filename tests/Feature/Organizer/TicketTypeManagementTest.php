@@ -1,7 +1,10 @@
 <?php
 
 use App\Enums\EventStatus;
+use App\Enums\OrderStatus;
 use App\Models\Event;
+use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\TicketType;
 use App\Models\User;
 use Livewire\Livewire;
@@ -105,6 +108,44 @@ test('owners can delete a ticket type', function () {
 
     expect(TicketType::count())->toBe(0);
 });
+
+test('ticket types with pending orders only are deleted along with the orders', function () {
+    $event = Event::factory()->create();
+    [$ticketType, $otherTicketType] = TicketType::factory()->for($event)->count(2)->create();
+    OrderItem::factory()->for(Order::factory()->for($event))->for($ticketType)->create();
+    $otherOrder = Order::factory()->for($event)->create();
+    OrderItem::factory()->for($otherOrder)->for($otherTicketType)->create();
+
+    $this->actingAs($event->organizer);
+
+    Livewire::test('pages::organizer.events.edit', ['event' => $event])
+        ->call('deleteTicketType', $ticketType->id);
+
+    expect($ticketType->fresh())->toBeNull()
+        ->and(Order::sole()->is($otherOrder))->toBeTrue()
+        ->and(OrderItem::count())->toBe(1);
+});
+
+test('ticket types with orders to keep cannot be deleted', function (OrderStatus $status) {
+    $event = Event::factory()->create();
+    $ticketType = TicketType::factory()->for($event)->create();
+    OrderItem::factory()
+        ->for(Order::factory()->for($event)->create(['status' => $status]))
+        ->for($ticketType)
+        ->create();
+
+    $this->actingAs($event->organizer);
+
+    Livewire::test('pages::organizer.events.edit', ['event' => $event])
+        ->call('deleteTicketType', $ticketType->id);
+
+    expect($ticketType->fresh())->not->toBeNull()
+        ->and(Order::count())->toBe(1)
+        ->and(OrderItem::count())->toBe(1);
+})->with([
+    'paid' => [OrderStatus::Paid],
+    'refunded' => [OrderStatus::Refunded],
+]);
 
 test('the last ticket type of a published event cannot be deleted', function () {
     $event = Event::factory()->published()->create();

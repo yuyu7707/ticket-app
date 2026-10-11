@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\OrderStatus;
 use App\Enums\UserRole;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -103,6 +104,15 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
+    }
+
+    /**
+     * Events and orders other than pending ones are records to keep, so the user cannot be deleted while they exist.
+     */
+    public function hasRecordsBlockingDeletion(): bool
+    {
+        return $this->events()->exists()
+            || $this->orders()->where('status', '!=', OrderStatus::Pending)->exists();
     }
 
     /**

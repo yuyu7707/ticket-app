@@ -7,6 +7,7 @@ use App\Livewire\Forms\TicketTypeForm;
 use App\Models\Event;
 use App\Models\TicketType;
 use Flux\Flux;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
@@ -129,7 +130,8 @@ new #[Title('イベント編集')] class extends Component {
     }
 
     /**
-     * Delete the given ticket type. A published event must keep at least one ticket type.
+     * Delete the given ticket type along with its pending orders. A published event must keep at least one ticket type,
+     * and ticket types with orders to keep cannot be deleted.
      */
     public function deleteTicketType(int $ticketTypeId): void
     {
@@ -143,7 +145,19 @@ new #[Title('イベント編集')] class extends Component {
             return;
         }
 
-        $ticketType->delete();
+        if ($ticketType->hasOrdersBlockingDeletion()) {
+            Flux::toast(variant: 'danger', text: '支払い済みの注文があるため削除できません。');
+
+            return;
+        }
+
+        DB::transaction(function () use ($ticketType) {
+            $this->event->orders()
+                ->where('status', OrderStatus::Pending)
+                ->whereHas('items', fn (Builder $query) => $query->where('ticket_type_id', $ticketType->id))
+                ->delete();
+            $ticketType->delete();
+        });
 
         if ($this->editingTicketTypeId === $ticketType->id) {
             $this->cancelTicketTypeEdit();
