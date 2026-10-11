@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\UserRole;
+use App\Models\User;
 use Laravel\Fortify\Features;
 
 beforeEach(function () {
@@ -16,6 +18,7 @@ test('new users can register', function () {
     $response = $this->post(route('register.store'), [
         'name' => 'John Doe',
         'email' => 'test@example.com',
+        'role' => 'customer',
         'password' => 'password',
         'password_confirmation' => 'password',
     ]);
@@ -24,4 +27,6 @@ test('new users can register', function () {
         ->assertRedirect(route('dashboard', absolute: false));
 
     $this->assertAuthenticated();
+
+    expect(User::where('email', 'test@example.com')->first()->role)->toBe(UserRole::Customer);
 });
