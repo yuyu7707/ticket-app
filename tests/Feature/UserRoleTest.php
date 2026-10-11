@@ -17,8 +17,36 @@ test('users can register as an organizer', function () {
     ]);
 
     $response->assertSessionHasNoErrors();
+    $this->assertAuthenticated();
 
     expect(User::where('email', 'organizer@example.com')->first()->role)->toBe(UserRole::Organizer);
+});
+
+test('registration requires a valid role', function (?string $role) {
+    $this->skipUnlessFortifyHas(Features::registration());
+
+    $response = $this->post(route('register.store'), array_filter([
+        'name' => '参加 次郎',
+        'email' => 'invalid-role@example.com',
+        'role' => $role,
+        'password' => 'password',
+        'password_confirmation' => 'password',
+    ], fn (?string $value) => $value !== null));
+
+    $response->assertSessionHasErrors('role');
+    $this->assertGuest();
+    $this->assertDatabaseMissing('users', ['email' => 'invalid-role@example.com']);
+})->with([
+    'missing' => [null],
+    'unknown' => ['hacker'],
+]);
+
+test('role is not mass assignable', function () {
+    $user = User::factory()->create();
+
+    $user->update(['role' => UserRole::Admin->value]);
+
+    expect($user->fresh()->role)->toBe(UserRole::Customer);
 });
 
 test('users cannot register as an admin', function () {
@@ -79,3 +107,29 @@ test('organizers can access organizer only routes', function () {
         ->get('/_test/organizer-only')
         ->assertOk();
 });
+
+test('admins cannot access organizer only routes', function () {
+    Route::middleware(['web', 'auth', 'role:organizer'])->get('/_test/organizer-only', fn () => 'ok');
+
+    $this->actingAs(User::factory()->create(['role' => UserRole::Admin]))
+        ->get('/_test/organizer-only')
+        ->assertForbidden();
+});
+
+test('guests are forbidden by the role middleware', function () {
+    Route::middleware(['web', 'role:organizer'])->get('/_test/organizer-only', fn () => 'ok');
+
+    $this->get('/_test/organizer-only')
+        ->assertForbidden();
+});
+
+test('any of the listed roles can access the route', function (UserRole $role) {
+    Route::middleware(['web', 'auth', 'role:organizer,admin'])->get('/_test/organizer-or-admin', fn () => 'ok');
+
+    $this->actingAs(User::factory()->create(['role' => $role]))
+        ->get('/_test/organizer-or-admin')
+        ->assertOk();
+})->with([
+    'organizer' => [UserRole::Organizer],
+    'admin' => [UserRole::Admin],
+]);
