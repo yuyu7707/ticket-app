@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\EventStatus;
+use App\Enums\OrderStatus;
 use Database\Factories\EventFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -137,6 +138,14 @@ class Event extends Model
     public function hasTicketTypes(): bool
     {
         return $this->ticketTypes()->exists();
+    }
+
+    /**
+     * Orders other than pending ones are records to keep, so the event cannot be deleted while they exist.
+     */
+    public function hasOrdersBlockingDeletion(): bool
+    {
+        return $this->orders()->where('status', '!=', OrderStatus::Pending)->exists();
     }
 
     /**

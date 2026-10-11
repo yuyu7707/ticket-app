@@ -1,12 +1,14 @@
 <?php
 
 use App\Enums\EventStatus;
+use App\Enums\OrderStatus;
 use App\Livewire\Forms\EventForm;
 use App\Livewire\Forms\TicketTypeForm;
 use App\Models\Event;
 use App\Models\TicketType;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
@@ -151,13 +153,22 @@ new #[Title('イベント編集')] class extends Component {
     }
 
     /**
-     * Delete the event.
+     * Delete the event along with its pending orders, unless it has orders that must be kept.
      */
     public function deleteEvent(): void
     {
         $this->authorize('delete', $this->event);
 
-        $this->event->delete();
+        if ($this->event->hasOrdersBlockingDeletion()) {
+            Flux::toast(variant: 'danger', text: '支払い済みの注文があるため削除できません。');
+
+            return;
+        }
+
+        DB::transaction(function () {
+            $this->event->orders()->where('status', OrderStatus::Pending)->delete();
+            $this->event->delete();
+        });
 
         Flux::toast(variant: 'success', text: 'イベントを削除しました。');
 

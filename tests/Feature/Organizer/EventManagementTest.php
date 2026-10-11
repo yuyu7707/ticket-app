@@ -1,8 +1,11 @@
 <?php
 
 use App\Enums\EventStatus;
+use App\Enums\OrderStatus;
 use App\Enums\UserRole;
 use App\Models\Event;
+use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\TicketType;
 use App\Models\User;
 use Livewire\Livewire;
@@ -153,6 +156,49 @@ test('owners can delete their event', function () {
 
     expect(Event::count())->toBe(0);
 });
+
+test('events with pending orders only are deleted along with the orders', function () {
+    $ticketType = TicketType::factory()->create();
+    $event = $ticketType->event;
+    OrderItem::factory()->for(Order::factory()->for($event))->for($ticketType)->create();
+
+    $this->actingAs($event->organizer);
+
+    Livewire::test('pages::organizer.events.edit', ['event' => $event])
+        ->call('deleteEvent')
+        ->assertRedirect(route('organizer.events.index'));
+
+    expect(Event::count())->toBe(0)
+        ->and(Order::count())->toBe(0)
+        ->and(OrderItem::count())->toBe(0)
+        ->and(TicketType::count())->toBe(0);
+});
+
+test('events with orders to keep cannot be deleted', function (array $statuses) {
+    $ticketType = TicketType::factory()->create();
+    $event = $ticketType->event;
+
+    foreach ($statuses as $status) {
+        OrderItem::factory()
+            ->for(Order::factory()->for($event)->create(['status' => $status]))
+            ->for($ticketType)
+            ->create();
+    }
+
+    $this->actingAs($event->organizer);
+
+    Livewire::test('pages::organizer.events.edit', ['event' => $event])
+        ->call('deleteEvent')
+        ->assertNoRedirect();
+
+    expect($event->fresh())->not->toBeNull()
+        ->and(Order::count())->toBe(count($statuses))
+        ->and(OrderItem::count())->toBe(count($statuses));
+})->with([
+    'paid' => [[OrderStatus::Paid]],
+    'paid and pending' => [[OrderStatus::Paid, OrderStatus::Pending]],
+    'refunded' => [[OrderStatus::Refunded]],
+]);
 
 test('other organizers cannot open the edit page', function () {
     $event = Event::factory()->create();
