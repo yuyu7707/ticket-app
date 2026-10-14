@@ -16,4 +16,12 @@ class OrderPolicy
             || $order->event->isOwnedBy($user)
             || $user->isAdmin();
     }
+
+    /**
+     * Only the buyer can cancel the order, so the organizer or an administrator opening the cancel page changes nothing.
+     */
+    public function cancel(User $user, Order $order): bool
+    {
+        return $order->user_id === $user->id;
+    }
 }

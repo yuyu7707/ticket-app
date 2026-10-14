@@ -35,7 +35,7 @@ test('remaining counts paid orders and pending orders within the hold time', fun
 
     OrderItem::factory()->for($order(OrderStatus::Paid, '2026-10-01 12:00'))->for($ticketType)->create(['quantity' => 3]);
     OrderItem::factory()->for($order(OrderStatus::Pending, '2026-11-01 11:50'))->for($ticketType)->create(['quantity' => 2]);
-    OrderItem::factory()->for($order(OrderStatus::Pending, '2026-11-01 11:40'))->for($ticketType)->create(['quantity' => 4]);
+    OrderItem::factory()->for($order(OrderStatus::Pending, '2026-11-01 11:20'))->for($ticketType)->create(['quantity' => 4]);
     OrderItem::factory()->for($order(OrderStatus::Cancelled, '2026-11-01 11:59'))->for($ticketType)->create(['quantity' => 5]);
     OrderItem::factory()->for($order(OrderStatus::Paid, '2026-11-01 11:59'))->create(['quantity' => 6]);
 
@@ -51,8 +51,8 @@ test('pending orders stop holding tickets after the hold time', function (string
 
     expect($ticketType->remaining())->toBe($expected);
 })->with([
-    'just before the hold time' => ['2026-11-01 12:14:59', 6],
-    'at the hold time' => ['2026-11-01 12:15:00', 10],
+    'just before the hold time' => ['2026-11-01 12:30:59', 6],
+    'at the hold time' => ['2026-11-01 12:31:00', 10],
 ]);
 
 test('remaining never goes below zero', function () {

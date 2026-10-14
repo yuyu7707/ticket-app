@@ -1,8 +1,10 @@
 <?php
 
+use App\Enums\OrderStatus;
 use App\Exceptions\PurchaseException;
 use App\Models\Event;
 use App\Models\TicketType;
+use App\Services\CheckoutService;
 use App\Services\OrderService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -10,6 +12,7 @@ use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
+use Stripe\Exception\ApiErrorException;
 
 new class extends Component {
     #[Locked]
@@ -68,9 +71,9 @@ new class extends Component {
     }
 
     /**
-     * Place the order. Stripe is not wired up yet, so go straight to the complete page.
+     * Place the order and move to the Stripe payment page. Free orders skip Stripe and go straight to the complete page.
      */
-    public function pay(OrderService $orderService): void
+    public function pay(OrderService $orderService, CheckoutService $checkoutService): void
     {
         $this->authorize('purchase', $this->event);
 
@@ -88,9 +91,30 @@ new class extends Component {
             return;
         }
 
+        if ($order->total_amount === 0) {
+            session()->forget("purchase.{$this->event->id}");
+
+            $this->redirectRoute('orders.complete', $order, navigate: true);
+
+            return;
+        }
+
+        try {
+            $checkoutUrl = $checkoutService->createSession($order);
+        } catch (ApiErrorException $exception) {
+            report($exception);
+
+            // The order can never be paid, so release its tickets and keep the selection for a retry.
+            $order->forceFill(['status' => OrderStatus::Cancelled])->save();
+
+            $this->addError('purchase', '決済ページを開けませんでした。時間をおいてお試しください。');
+
+            return;
+        }
+
         session()->forget("purchase.{$this->event->id}");
 
-        $this->redirectRoute('orders.complete', $order, navigate: true);
+        $this->redirect($checkoutUrl);
     }
 
     public function render(): View

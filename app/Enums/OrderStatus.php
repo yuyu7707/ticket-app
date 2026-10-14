@@ -10,6 +10,16 @@ enum OrderStatus: string
     case Refunded = 'refunded';
 
     /**
+     * Get the statuses of orders that hold no record worth keeping and can be deleted along with their event, ticket type or user.
+     *
+     * @return list<self>
+     */
+    public static function discardable(): array
+    {
+        return [self::Pending, self::Cancelled];
+    }
+
+    /**
      * Get the Japanese label for the status.
      */
     public function label(): string

@@ -82,12 +82,12 @@ class TicketType extends Model
     }
 
     /**
-     * Orders other than pending ones are records to keep, so the ticket type cannot be deleted while they exist.
+     * Orders other than pending and cancelled ones are records to keep, so the ticket type cannot be deleted while they exist.
      */
     public function hasOrdersBlockingDeletion(): bool
     {
         return $this->orderItems()
-            ->whereHas('order', fn (Builder $query) => $query->where('status', '!=', OrderStatus::Pending))
+            ->whereHas('order', fn (Builder $query) => $query->whereNotIn('status', OrderStatus::discardable()))
             ->exists();
     }
 
