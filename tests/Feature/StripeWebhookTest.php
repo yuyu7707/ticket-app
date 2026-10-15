@@ -1,10 +1,12 @@
 <?php
 
 use App\Enums\OrderStatus;
+use App\Mail\OrderPaidMail;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Ticket;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Testing\TestResponse;
 
 beforeEach(function () {
@@ -76,6 +78,30 @@ test('the same webhook delivered twice does not issue the tickets twice', functi
     expect(Ticket::count())->toBe(3);
 
     Log::shouldNotHaveReceived('error');
+});
+
+test('the buyer receives one purchase mail even when the webhook is delivered twice', function () {
+    Mail::fake();
+
+    postStripeWebhook($this->order)->assertOk();
+    postStripeWebhook($this->order)->assertOk();
+
+    Mail::assertSentCount(1);
+    Mail::assertSent(OrderPaidMail::class, function (OrderPaidMail $mail) {
+        $mail->assertSeeInHtml($this->order->event->title)
+            ->assertSeeInHtml(route('orders.show', $this->order));
+
+        return $mail->hasTo($this->order->user->email)
+            && $mail->hasSubject("【まちチケ】チケットの購入が完了しました（{$this->order->event->title}）");
+    });
+});
+
+test('an unpaid session sends no purchase mail', function () {
+    Mail::fake();
+
+    postStripeWebhook($this->order, paymentStatus: 'unpaid')->assertOk();
+
+    Mail::assertNothingSent();
 });
 
 test('a completed session that is not paid yet leaves the order pending without tickets', function () {

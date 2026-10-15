@@ -4,12 +4,15 @@ namespace App\Services;
 
 use App\Enums\OrderStatus;
 use App\Exceptions\PurchaseException;
+use App\Mail\OrderPaidMail;
 use App\Models\Event;
 use App\Models\Order;
 use App\Models\TicketType;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use Throwable;
 
 class OrderService
 {
@@ -108,7 +111,23 @@ class OrderService
 
         $order->refresh();
 
+        if ($marked) {
+            $this->sendPaidMail($order);
+        }
+
         return $marked;
+    }
+
+    /**
+     * The payment is already confirmed, so a mail failure is reported without failing the webhook or the page.
+     */
+    private function sendPaidMail(Order $order): void
+    {
+        try {
+            Mail::to($order->user)->send(new OrderPaidMail($order));
+        } catch (Throwable $exception) {
+            report($exception);
+        }
     }
 
     /**
