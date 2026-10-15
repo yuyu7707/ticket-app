@@ -10,12 +10,12 @@
 **会場**: {{ $order->event->venue }}
 
 <x-mail::table>
-| 券種 | 枚数 | 小計 |
-|:-|-:|-:|
+| 券種 | 単価 | 枚数 | 小計 |
+|:-|-:|-:|-:|
 @foreach ($order->items as $item)
-| {{ $item->ticketType->name }} | {{ $item->quantity }}枚 | {{ number_format($item->subtotal()) }}円 |
+| {{ $item->ticketType->name }} | {{ number_format($item->unit_price) }}円 | {{ $item->quantity }}枚 | {{ number_format($item->subtotal()) }}円 |
 @endforeach
-| **合計** | | **{{ number_format($order->total_amount) }}円** |
+| **合計** | | | **{{ number_format($order->total_amount) }}円** |
 </x-mail::table>
 
 チケットのコードは注文詳細のページで確認できます。
