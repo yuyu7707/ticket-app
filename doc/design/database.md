@@ -192,3 +192,20 @@ erDiagram
 計算で出せば元のデータは注文だけなので、これらの更新漏れが起きない。集計の速さは `orders` の `(event_id, status)` インデックスで補う。
 
 同時購入で定員を超える問題は、計算方式でも「チェックしてから注文を作るまで」の間に起こり得る。これは拡張 E2（トランザクションと行ロック）で対策する。
+
+<br>
+
+## 参考解答（データベース設計）との違い
+
+テーブルの数と名前（6つ）、`orders` と `order_items` を分けること、`tickets` を `order_items` にぶら下げることは参考解答と同じ。違うところと理由は次のとおり。
+
+| 場所 | 参考解答 | この設計 | 理由 |
+|-|-|-|-|
+| 残り枚数で数える `pending` | 作成から15分以内 | 作成から31分以内 | Stripe の決済ページの期限は最短30分。15分で枠を戻すと、戻したあとも決済ページで払えてしまい、定員を超える |
+| `tickets.code` | uuid | string(26)、ULID | どちらも重複しない。ULID は作成順に並び、文字数も短い |
+| `tickets.checked_in_at` | あり（受付済み日時、拡張 E1） | なし | 拡張 E1 を作るときに追加する |
+| `order_items.subtotal` | カラムに保存（quantity × unit_price） | 保存せず `OrderItem::subtotal()` で計算 | 単価と枚数から必ず出せるので、同じ情報を2か所に持たない（残り枚数と同じ考え方） |
+| `events.organizer_id` の削除時 | cascade（主催者を消すとイベントも消える） | restrict（イベントがある主催者は消せない） | 売上と注文の記録を残すため |
+| `events.ends_at` | not null | NULL 可 | 終了時刻が決まっていないイベントも登録できるようにする |
+| 販売期間 | `sales_starts_at` / `sales_ends_at`、not null | `sales_start_at` / `sales_end_at`、NULL 可 | NULL なら期限なしで販売する。以降の章の指示例に `sales_starts_at` / `sales_ends_at` とあれば、このカラム名に読み替える |
+| `orders.stripe_payment_intent_id` | nullable | NULL 可, unique | 1つの支払いが2つの注文に結び付かないようにする |
