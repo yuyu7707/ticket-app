@@ -5,8 +5,12 @@ namespace App\Services;
 use App\Models\Order;
 use App\Models\OrderItem;
 use Stripe\Checkout\Session;
+use Stripe\Event;
 use Stripe\Exception\ApiErrorException;
+use Stripe\Exception\SignatureVerificationException;
 use Stripe\StripeClient;
+use Stripe\Webhook;
+use UnexpectedValueException;
 
 class CheckoutService
 {
@@ -68,5 +72,16 @@ class CheckoutService
     public function retrieveSession(string $id): Session
     {
         return $this->stripe->checkout->sessions->retrieve($id);
+    }
+
+    /**
+     * Verify the signature of a webhook request with the webhook secret and build the Stripe event from it.
+     *
+     * @throws SignatureVerificationException
+     * @throws UnexpectedValueException
+     */
+    public function constructWebhookEvent(string $payload, string $signature): Event
+    {
+        return Webhook::constructEvent($payload, $signature, (string) config('services.stripe.webhook_secret'));
     }
 }

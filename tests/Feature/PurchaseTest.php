@@ -5,6 +5,7 @@ use App\Enums\OrderStatus;
 use App\Models\Event;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\Ticket;
 use App\Models\TicketType;
 use App\Models\User;
 use App\Services\CheckoutService;
@@ -99,13 +100,13 @@ test('paying creates a pending order and moves to the Stripe payment page', func
     expect(session()->has("purchase.{$this->event->id}"))->toBeFalse();
 });
 
-test('a free order skips Stripe and moves to the complete page while still pending', function () {
+test('a free order skips Stripe, is paid at once with its tickets issued and moves to the complete page', function () {
     $ticketType = TicketType::factory()->for($this->event)->create(['name' => '無料券', 'price' => 0]);
 
     $this->mock(CheckoutService::class)->shouldNotReceive('createSession');
 
     $this->actingAs($this->user)
-        ->withSession(["purchase.{$this->event->id}" => [$ticketType->id => 1]]);
+        ->withSession(["purchase.{$this->event->id}" => [$ticketType->id => 2]]);
 
     $component = Livewire::test('pages::events.purchase', ['event' => $this->event])
         ->call('pay');
@@ -115,7 +116,9 @@ test('a free order skips Stripe and moves to the complete page while still pendi
     $component->assertRedirect(route('orders.complete', $order));
 
     expect($order->total_amount)->toBe(0)
-        ->and($order->status)->toBe(OrderStatus::Pending);
+        ->and($order->status)->toBe(OrderStatus::Paid)
+        ->and($order->paid_at)->not->toBeNull()
+        ->and(Ticket::count())->toBe(2);
 });
 
 test('a Stripe error while opening the payment page is reported', function () {
@@ -257,7 +260,7 @@ test('the buyer can see the complete page', function () {
     $this->actingAs($this->user)
         ->get(route('orders.complete', $order))
         ->assertOk()
-        ->assertSee('注文を受け付けました');
+        ->assertSee('支払いを確認中です');
 });
 
 test('other users cannot see the complete page of someone else\'s order', function () {

@@ -71,7 +71,7 @@ new class extends Component {
     }
 
     /**
-     * Place the order and move to the Stripe payment page. Free orders skip Stripe and go straight to the complete page.
+     * Place the order and move to the Stripe payment page. Free orders skip Stripe, are paid at once and go straight to the complete page.
      */
     public function pay(OrderService $orderService, CheckoutService $checkoutService): void
     {
@@ -92,6 +92,8 @@ new class extends Component {
         }
 
         if ($order->total_amount === 0) {
+            $orderService->markAsPaid($order, null);
+
             session()->forget("purchase.{$this->event->id}");
 
             $this->redirectRoute('orders.complete', $order, navigate: true);

@@ -56,6 +56,7 @@ erDiagram
         string status "pending / paid"
         int total_amount "円"
         string stripe_checkout_session_id UK "NULL可"
+        string stripe_payment_intent_id UK "NULL可"
         datetime paid_at "NULL可"
     }
     order_items {
@@ -121,6 +122,7 @@ erDiagram
 | status | string(20) | NOT NULL, default `pending` | `pending` / `paid` |
 | total_amount | unsignedInteger | NOT NULL | 合計金額（円）。明細の合計を注文時に保存 |
 | stripe_checkout_session_id | string | NULL 可, unique | Checkout Session の ID。0円注文と作成直後は NULL |
+| stripe_payment_intent_id | string | NULL 可, unique | 支払いの PaymentIntent の ID。`paid` にしたときに保存する（返金で使う） |
 | paid_at | datetime | NULL 可 | 支払いが確定した日時 |
 
 インデックス: `(event_id, status)`（売上集計・残り枚数の計算用）、`(user_id, created_at)`（マイページ用）
