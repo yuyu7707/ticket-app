@@ -65,6 +65,7 @@ test('creating a session sends the order items as JPY line items and saves the s
         ->and($request['url'])->toEndWith('/v1/checkout/sessions')
         ->and($request['params'])->toMatchArray([
             'mode' => 'payment',
+            'payment_method_types' => ['card'],
             'metadata' => ['order_id' => (string) $order->id],
             'success_url' => route('orders.complete', $order).'?session_id={CHECKOUT_SESSION_ID}',
             'cancel_url' => route('orders.cancel', $order),

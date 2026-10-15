@@ -30,6 +30,8 @@ class CheckoutService
 
         $session = $this->stripe->checkout->sessions->create([
             'mode' => 'payment',
+            // Delayed methods such as konbini are paid after the tickets are no longer held, so only cards are accepted.
+            'payment_method_types' => ['card'],
             'line_items' => $order->items->map(fn (OrderItem $item) => [
                 'price_data' => [
                     'currency' => 'jpy',
