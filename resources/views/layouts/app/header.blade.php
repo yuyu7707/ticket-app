@@ -15,11 +15,9 @@
                 </flux:navbar.item>
 
                 @auth
-                    @if (Route::has('orders.index'))
-                        <flux:navbar.item icon="ticket" :href="route('orders.index')" :current="request()->routeIs('orders.*')" wire:navigate>
-                            マイチケット
-                        </flux:navbar.item>
-                    @endif
+                    <flux:navbar.item icon="ticket" :href="route('orders.index')" :current="request()->routeIs('orders.*')" wire:navigate>
+                        マイチケット
+                    </flux:navbar.item>
 
                     @if (auth()->user()->isOrganizer())
                         <flux:navbar.item icon="clipboard-document-list" :href="route('organizer.events.index')" :current="request()->routeIs('organizer.*')" wire:navigate>
@@ -111,11 +109,9 @@
                 </flux:sidebar.item>
 
                 @auth
-                    @if (Route::has('orders.index'))
-                        <flux:sidebar.item icon="ticket" :href="route('orders.index')" :current="request()->routeIs('orders.*')" wire:navigate>
-                            マイチケット
-                        </flux:sidebar.item>
-                    @endif
+                    <flux:sidebar.item icon="ticket" :href="route('orders.index')" :current="request()->routeIs('orders.*')" wire:navigate>
+                        マイチケット
+                    </flux:sidebar.item>
 
                     @if (auth()->user()->isOrganizer())
                         <flux:sidebar.item icon="clipboard-document-list" :href="route('organizer.events.index')" :current="request()->routeIs('organizer.*')" wire:navigate>
