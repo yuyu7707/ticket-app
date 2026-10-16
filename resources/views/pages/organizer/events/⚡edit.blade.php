@@ -153,7 +153,7 @@ new #[Title('イベント編集')] class extends Component {
 
         DB::transaction(function () use ($ticketType) {
             $this->event->orders()
-                ->where('status', OrderStatus::Pending)
+                ->whereIn('status', OrderStatus::discardable())
                 ->whereHas('items', fn (Builder $query) => $query->where('ticket_type_id', $ticketType->id))
                 ->delete();
             $ticketType->delete();
@@ -180,7 +180,7 @@ new #[Title('イベント編集')] class extends Component {
         }
 
         DB::transaction(function () {
-            $this->event->orders()->where('status', OrderStatus::Pending)->delete();
+            $this->event->orders()->whereIn('status', OrderStatus::discardable())->delete();
             $this->event->delete();
         });
 

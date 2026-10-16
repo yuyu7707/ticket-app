@@ -109,10 +109,10 @@ test('owners can delete a ticket type', function () {
     expect(TicketType::count())->toBe(0);
 });
 
-test('ticket types with pending orders only are deleted along with the orders', function () {
+test('ticket types with pending or cancelled orders only are deleted along with the orders', function (OrderStatus $status) {
     $event = Event::factory()->create(['starts_at' => '2026-12-01 10:00']);
     [$ticketType, $otherTicketType] = TicketType::factory()->for($event)->count(2)->create();
-    OrderItem::factory()->for(Order::factory()->for($event))->for($ticketType)->create();
+    OrderItem::factory()->for(Order::factory()->for($event)->create(['status' => $status]))->for($ticketType)->create();
     $otherOrder = Order::factory()->for($event)->create();
     OrderItem::factory()->for($otherOrder)->for($otherTicketType)->create();
 
@@ -124,7 +124,10 @@ test('ticket types with pending orders only are deleted along with the orders', 
     expect($ticketType->fresh())->toBeNull()
         ->and(Order::sole()->is($otherOrder))->toBeTrue()
         ->and(OrderItem::count())->toBe(1);
-});
+})->with([
+    'pending' => [OrderStatus::Pending],
+    'cancelled' => [OrderStatus::Cancelled],
+]);
 
 test('ticket types with orders to keep cannot be deleted', function (OrderStatus $status) {
     $event = Event::factory()->create(['starts_at' => '2026-12-01 10:00']);

@@ -156,10 +156,10 @@ test('owners can delete their event', function () {
     expect(Event::count())->toBe(0);
 });
 
-test('events with pending orders only are deleted along with the orders', function () {
+test('events with pending or cancelled orders only are deleted along with the orders', function (OrderStatus $status) {
     $ticketType = TicketType::factory()->create();
     $event = $ticketType->event;
-    OrderItem::factory()->for(Order::factory()->for($event))->for($ticketType)->create();
+    OrderItem::factory()->for(Order::factory()->for($event)->create(['status' => $status]))->for($ticketType)->create();
 
     $this->actingAs($event->organizer);
 
@@ -171,7 +171,10 @@ test('events with pending orders only are deleted along with the orders', functi
         ->and(Order::count())->toBe(0)
         ->and(OrderItem::count())->toBe(0)
         ->and(TicketType::count())->toBe(0);
-});
+})->with([
+    'pending' => [OrderStatus::Pending],
+    'cancelled' => [OrderStatus::Cancelled],
+]);
 
 test('events with orders to keep cannot be deleted', function (array $statuses) {
     $ticketType = TicketType::factory()->create();

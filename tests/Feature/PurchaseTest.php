@@ -5,9 +5,17 @@ use App\Enums\OrderStatus;
 use App\Models\Event;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\Ticket;
 use App\Models\TicketType;
 use App\Models\User;
+use App\Services\CheckoutService;
+use Illuminate\Support\Facades\Exceptions;
 use Livewire\Livewire;
+use Stripe\Exception\ApiConnectionException;
+use Stripe\Exception\ApiErrorException;
+use Stripe\Exception\AuthenticationException;
+use Stripe\Exception\InvalidRequestException;
+use Stripe\Exception\RateLimitException;
 
 beforeEach(function () {
     $this->user = User::factory()->create();
@@ -63,18 +71,22 @@ test('the purchase page shows the total in yen', function () {
         ->assertSeeInOrder(['合計', '3,000円']);
 });
 
-test('paying creates a pending order and moves to the complete page', function () {
+test('paying creates a pending order and moves to the Stripe payment page', function () {
     $ticketType = TicketType::factory()->for($this->event)->create(['price' => 1500]);
+
+    $this->mock(CheckoutService::class)
+        ->expects('createSession')
+        ->withArgs(fn (Order $order) => $order->is(Order::sole()))
+        ->andReturn('https://checkout.stripe.com/c/pay/cs_test_123');
 
     $this->actingAs($this->user)
         ->withSession(["purchase.{$this->event->id}" => [$ticketType->id => 2]]);
 
-    $component = Livewire::test('pages::events.purchase', ['event' => $this->event])
-        ->call('pay');
+    Livewire::test('pages::events.purchase', ['event' => $this->event])
+        ->call('pay')
+        ->assertRedirect('https://checkout.stripe.com/c/pay/cs_test_123');
 
     $order = Order::sole();
-
-    $component->assertRedirect(route('orders.complete', $order));
 
     expect($order->status)->toBe(OrderStatus::Pending)
         ->and($order->user_id)->toBe($this->user->id)
@@ -88,8 +100,117 @@ test('paying creates a pending order and moves to the complete page', function (
     expect(session()->has("purchase.{$this->event->id}"))->toBeFalse();
 });
 
+test('a free order skips Stripe, is paid at once with its tickets issued and moves to the complete page', function () {
+    $ticketType = TicketType::factory()->for($this->event)->create(['name' => '無料券', 'price' => 0]);
+
+    $this->mock(CheckoutService::class)->shouldNotReceive('createSession');
+
+    $this->actingAs($this->user)
+        ->withSession(["purchase.{$this->event->id}" => [$ticketType->id => 2]]);
+
+    $component = Livewire::test('pages::events.purchase', ['event' => $this->event])
+        ->call('pay');
+
+    $order = Order::sole();
+
+    $component->assertRedirect(route('orders.complete', $order));
+
+    expect($order->total_amount)->toBe(0)
+        ->and($order->status)->toBe(OrderStatus::Paid)
+        ->and($order->paid_at)->not->toBeNull()
+        ->and(Ticket::count())->toBe(2);
+});
+
+test('a Stripe error while opening the payment page is reported', function () {
+    Exceptions::fake();
+
+    $ticketType = TicketType::factory()->for($this->event)->create();
+    $exception = new ApiConnectionException('Could not connect to Stripe.');
+
+    $this->mock(CheckoutService::class)
+        ->expects('createSession')
+        ->andThrow($exception);
+
+    $this->actingAs($this->user)
+        ->withSession(["purchase.{$this->event->id}" => [$ticketType->id => 1]]);
+
+    Livewire::test('pages::events.purchase', ['event' => $this->event])
+        ->call('pay');
+
+    Exceptions::assertReported(fn (ApiConnectionException $reported) => $reported === $exception);
+});
+
+test('the order is cancelled to release its tickets when the Stripe payment page cannot be opened', function () {
+    $ticketType = TicketType::factory()->for($this->event)->create(['capacity' => 1]);
+
+    $this->mock(CheckoutService::class)
+        ->expects('createSession')
+        ->andThrow(new ApiConnectionException('Could not connect to Stripe.'));
+
+    $this->actingAs($this->user)
+        ->withSession(["purchase.{$this->event->id}" => [$ticketType->id => 1]]);
+
+    Livewire::test('pages::events.purchase', ['event' => $this->event])
+        ->call('pay');
+
+    expect(Order::sole())
+        ->status->toBe(OrderStatus::Cancelled)
+        ->stripe_checkout_session_id->toBeNull()
+        ->and($ticketType->remaining())->toBe(1)
+        ->and(session("purchase.{$this->event->id}"))->toBe([$ticketType->id => 1]);
+});
+
+test('paying again after a Stripe error moves to the Stripe payment page with a new order', function () {
+    $ticketType = TicketType::factory()->for($this->event)->create(['capacity' => 1]);
+
+    $this->mock(CheckoutService::class, function ($mock) {
+        $mock->expects('createSession')->andThrow(new ApiConnectionException('Could not connect to Stripe.'));
+        $mock->expects('createSession')->andReturn('https://checkout.stripe.com/c/pay/cs_test_123');
+    });
+
+    $this->actingAs($this->user)
+        ->withSession(["purchase.{$this->event->id}" => [$ticketType->id => 1]]);
+
+    Livewire::test('pages::events.purchase', ['event' => $this->event])
+        ->call('pay')
+        ->assertHasErrors('purchase')
+        ->call('pay')
+        ->assertRedirect('https://checkout.stripe.com/c/pay/cs_test_123');
+
+    expect(Order::where('status', OrderStatus::Pending)->count())->toBe(1)
+        ->and(Order::where('status', OrderStatus::Cancelled)->count())->toBe(1)
+        ->and(session()->has("purchase.{$this->event->id}"))->toBeFalse();
+});
+
+test('any kind of Stripe error shows the same error without Stripe\'s own message', function (ApiErrorException $exception) {
+    $ticketType = TicketType::factory()->for($this->event)->create();
+
+    $this->mock(CheckoutService::class)
+        ->expects('createSession')
+        ->andThrow($exception);
+
+    $this->actingAs($this->user)
+        ->withSession(["purchase.{$this->event->id}" => [$ticketType->id => 1]]);
+
+    Livewire::test('pages::events.purchase', ['event' => $this->event])
+        ->call('pay')
+        ->assertHasErrors('purchase')
+        ->assertSee('決済ページを開けませんでした。時間をおいてお試しください。')
+        ->assertDontSee($exception->getMessage())
+        ->assertNoRedirect();
+})->with([
+    'connection failure' => [fn () => new ApiConnectionException('Could not connect to Stripe.')],
+    'invalid API key' => [fn () => new AuthenticationException('Invalid API Key provided: sk_test_dummy')],
+    'invalid request' => [fn () => new InvalidRequestException('Missing required param: line_items.')],
+    'rate limit' => [fn () => new RateLimitException('Too many requests hit the API too quickly.')],
+]);
+
 test('paying twice creates only one order', function () {
     $ticketType = TicketType::factory()->for($this->event)->create();
+
+    $this->mock(CheckoutService::class)
+        ->expects('createSession')
+        ->andReturn('https://checkout.stripe.com/c/pay/cs_test_123');
 
     $this->actingAs($this->user)
         ->withSession(["purchase.{$this->event->id}" => [$ticketType->id => 2]]);
@@ -139,7 +260,7 @@ test('the buyer can see the complete page', function () {
     $this->actingAs($this->user)
         ->get(route('orders.complete', $order))
         ->assertOk()
-        ->assertSee('注文を受け付けました');
+        ->assertSee('支払いを確認中です');
 });
 
 test('other users cannot see the complete page of someone else\'s order', function () {

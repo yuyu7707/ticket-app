@@ -32,7 +32,7 @@ new class extends Component {
         }
 
         DB::transaction(function () use ($user, $logout) {
-            $user->orders()->where('status', OrderStatus::Pending)->delete();
+            $user->orders()->whereIn('status', OrderStatus::discardable())->delete();
             tap($user, $logout(...))->delete();
         });
 

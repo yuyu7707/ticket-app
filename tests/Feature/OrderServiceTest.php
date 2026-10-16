@@ -5,6 +5,8 @@ use App\Enums\OrderStatus;
 use App\Exceptions\PurchaseException;
 use App\Models\Event;
 use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\Ticket;
 use App\Models\TicketType;
 use App\Models\User;
 use App\Services\OrderService;
@@ -104,3 +106,15 @@ test('fails when every quantity is zero', function () {
     expect(fn () => app(OrderService::class)->createOrder($this->user, $this->event, [$ticketType->id => 0]))
         ->toThrow(PurchaseException::class, '枚数を選んでください。');
 });
+
+test('marking an order that is no longer pending as paid changes nothing and issues no tickets', function (OrderStatus $status) {
+    $order = Order::factory()->for($this->user)->for($this->event)->create(['status' => $status]);
+    OrderItem::factory()->for($order)->create(['quantity' => 2]);
+
+    expect(app(OrderService::class)->markAsPaid($order, 'pi_test_123'))->toBeFalse()
+        ->and($order->fresh()->status)->toBe($status)
+        ->and(Ticket::count())->toBe(0);
+})->with([
+    'paid' => [OrderStatus::Paid],
+    'cancelled' => [OrderStatus::Cancelled],
+]);

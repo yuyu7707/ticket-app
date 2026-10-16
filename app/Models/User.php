@@ -107,12 +107,12 @@ class User extends Authenticatable implements MustVerifyEmail, PasskeyUser
     }
 
     /**
-     * Events and orders other than pending ones are records to keep, so the user cannot be deleted while they exist.
+     * Events and orders other than pending and cancelled ones are records to keep, so the user cannot be deleted while they exist.
      */
     public function hasRecordsBlockingDeletion(): bool
     {
         return $this->events()->exists()
-            || $this->orders()->where('status', '!=', OrderStatus::Pending)->exists();
+            || $this->orders()->whereNotIn('status', OrderStatus::discardable())->exists();
     }
 
     /**

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\OrderStatus;
 use App\Models\Event;
 use App\Models\Order;
 use App\Models\User;
@@ -62,8 +63,8 @@ test('user can delete their account', function () {
     expect(auth()->check())->toBeFalse();
 });
 
-test('pending orders are deleted along with the account', function () {
-    $order = Order::factory()->create();
+test('pending and cancelled orders are deleted along with the account', function (OrderStatus $status) {
+    $order = Order::factory()->create(['status' => $status]);
 
     $this->actingAs($order->user);
 
@@ -75,7 +76,10 @@ test('pending orders are deleted along with the account', function () {
 
     expect($order->user->fresh())->toBeNull()
         ->and(Order::count())->toBe(0);
-});
+})->with([
+    'pending' => [OrderStatus::Pending],
+    'cancelled' => [OrderStatus::Cancelled],
+]);
 
 test('users with records to keep cannot delete their account', function (Closure $createUser) {
     $user = $createUser();

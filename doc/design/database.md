@@ -56,6 +56,7 @@ erDiagram
         string status "pending / paid"
         int total_amount "円"
         string stripe_checkout_session_id UK "NULL可"
+        string stripe_payment_intent_id UK "NULL可"
         datetime paid_at "NULL可"
     }
     order_items {
@@ -121,6 +122,7 @@ erDiagram
 | status | string(20) | NOT NULL, default `pending` | `pending` / `paid` |
 | total_amount | unsignedInteger | NOT NULL | 合計金額（円）。明細の合計を注文時に保存 |
 | stripe_checkout_session_id | string | NULL 可, unique | Checkout Session の ID。0円注文と作成直後は NULL |
+| stripe_payment_intent_id | string | NULL 可, unique | 支払いの PaymentIntent の ID。`paid` にしたときに保存する（返金で使う） |
 | paid_at | datetime | NULL 可 | 支払いが確定した日時 |
 
 インデックス: `(event_id, status)`（売上集計・残り枚数の計算用）、`(user_id, created_at)`（マイページ用）
@@ -168,12 +170,13 @@ erDiagram
 ```
 残り枚数 = ticket_types.capacity
          − ( status = paid の注文の order_items.quantity の合計
-           + status = pending で、作成から15分以内の注文の order_items.quantity の合計 )
+           + status = pending で、作成から31分以内の注文の order_items.quantity の合計 )
 ```
 
 - `pending` も数えるのは、支払い画面に進んだ人の分を押さえておくため
-- 作成から15分を過ぎた `pending` は数えない。支払いを放置した注文の分は、時間がたつと自動で売り物に戻る
-- 15分は設定値として1か所にまとめる（例: `config/tickets.php` の `pending_hold_minutes`）
+- 作成から31分を過ぎた `pending` は数えない。支払いを放置した注文の分は、時間がたつと自動で売り物に戻る
+- 31分は設定値として1か所にまとめる（`config/tickets.php` の `pending_hold_minutes`）
+- 31分にするのは、Stripe の決済ページの期限（`expires_at`）が最短30分のため。決済ページは枠の確保が切れる30秒前に閉じ、枠が戻ったあとに払われないようにする
 
 ### カラムに持たない理由
 
@@ -181,7 +184,7 @@ erDiagram
 
 | 場面 | ずれ方 |
 |-|-|
-| `pending` が15分を過ぎる | 時間がたつだけでは何も更新されないので、減ったまま戻らない |
+| `pending` が31分を過ぎる | 時間がたつだけでは何も更新されないので、減ったまま戻らない |
 | 定員の変更、注文の削除、返金（E3） | 更新する場所が多く、1か所でも漏れるとずれたままになる |
 | 同時に購入される | 2人が同じ残り枚数を読んで書き込み、片方の減算が消える |
 | Webhook の再送 | 同じ支払いで2回減らしてしまう |
@@ -189,3 +192,20 @@ erDiagram
 計算で出せば元のデータは注文だけなので、これらの更新漏れが起きない。集計の速さは `orders` の `(event_id, status)` インデックスで補う。
 
 同時購入で定員を超える問題は、計算方式でも「チェックしてから注文を作るまで」の間に起こり得る。これは拡張 E2（トランザクションと行ロック）で対策する。
+
+<br>
+
+## 参考解答（データベース設計）との違い
+
+テーブルの数と名前（6つ）、`orders` と `order_items` を分けること、`tickets` を `order_items` にぶら下げることは参考解答と同じ。違うところと理由は次のとおり。
+
+| 場所 | 参考解答 | この設計 | 理由 |
+|-|-|-|-|
+| 残り枚数で数える `pending` | 作成から15分以内 | 作成から31分以内 | Stripe の決済ページの期限は最短30分。15分で枠を戻すと、戻したあとも決済ページで払えてしまい、定員を超える |
+| `tickets.code` | uuid | string(26)、ULID | どちらも重複しない。ULID は作成順に並び、文字数も短い |
+| `tickets.checked_in_at` | あり（受付済み日時、拡張 E1） | なし | 拡張 E1 を作るときに追加する |
+| `order_items.subtotal` | カラムに保存（quantity × unit_price） | 保存せず `OrderItem::subtotal()` で計算 | 単価と枚数から必ず出せるので、同じ情報を2か所に持たない（残り枚数と同じ考え方） |
+| `events.organizer_id` の削除時 | cascade（主催者を消すとイベントも消える） | restrict（イベントがある主催者は消せない） | 売上と注文の記録を残すため |
+| `events.ends_at` | not null | NULL 可 | 終了時刻が決まっていないイベントも登録できるようにする |
+| 販売期間 | `sales_starts_at` / `sales_ends_at`、not null | `sales_start_at` / `sales_end_at`、NULL 可 | NULL なら期限なしで販売する。以降の章の指示例に `sales_starts_at` / `sales_ends_at` とあれば、このカラム名に読み替える |
+| `orders.stripe_payment_intent_id` | nullable | NULL 可, unique | 1つの支払いが2つの注文に結び付かないようにする |

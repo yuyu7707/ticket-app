@@ -141,11 +141,11 @@ class Event extends Model
     }
 
     /**
-     * Orders other than pending ones are records to keep, so the event cannot be deleted while they exist.
+     * Orders other than pending and cancelled ones are records to keep, so the event cannot be deleted while they exist.
      */
     public function hasOrdersBlockingDeletion(): bool
     {
-        return $this->orders()->where('status', '!=', OrderStatus::Pending)->exists();
+        return $this->orders()->whereNotIn('status', OrderStatus::discardable())->exists();
     }
 
     /**
