@@ -369,6 +369,7 @@
     "This team name is reserved and cannot be used.": "このチーム名は使用できません。",
     "This user is already a member of the team.": "このユーザーはすでにチームのメンバーです。",
     "to": "〜",
+    "Toggle sidebar": "メニューの開閉",
     "To finish enabling two-factor authentication, scan the QR code or enter the setup key in your authenticator app.": "二要素認証を有効にするには、QR コードをスキャンするか、セットアップキーを認証アプリに入力してください。",
     "Toggle navigation": "ナビゲーション切替",
     "Too Early": "リクエスト間隔が早すぎる",
