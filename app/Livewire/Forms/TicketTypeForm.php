@@ -3,6 +3,7 @@
 namespace App\Livewire\Forms;
 
 use App\Models\TicketType;
+use Closure;
 use Illuminate\Validation\Rule;
 use Livewire\Form;
 
@@ -61,12 +62,26 @@ class TicketTypeForm extends Form
      */
     protected function rules(): array
     {
-        $eventStartsAt = $this->getComponent()->event->starts_at;
+        $component = $this->getComponent();
+        $eventStartsAt = $component->event->starts_at;
+        $soldQuantity = $component->editingTicketTypeId !== null
+            ? ($component->event->ticketTypes()->find($component->editingTicketTypeId)?->soldQuantity() ?? 0)
+            : 0;
 
         return [
             'name' => ['required', 'string', 'max:50'],
             'price' => ['required', 'integer', 'min:0', 'max:1000000'],
-            'capacity' => ['required', 'integer', 'min:1', 'max:100000'],
+            'capacity' => [
+                'required',
+                'integer',
+                'min:1',
+                'max:100000',
+                function (string $attribute, mixed $value, Closure $fail) use ($soldQuantity) {
+                    if ((int) $value < $soldQuantity) {
+                        $fail("定員は販売済みの枚数（{$soldQuantity}枚）以上にしてください。");
+                    }
+                },
+            ],
             'sales_start_at' => ['nullable', 'date'],
             'sales_end_at' => [
                 'nullable',

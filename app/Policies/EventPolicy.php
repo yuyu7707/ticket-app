@@ -72,11 +72,17 @@ class EventPolicy
     }
 
     /**
-     * Determine whether the user can delete the event.
+     * Owners can delete the event unless it has orders that must be kept, such as paid ones.
      */
-    public function delete(User $user, Event $event): bool
+    public function delete(User $user, Event $event): Response
     {
-        return $event->isOwnedBy($user);
+        if (! $event->isOwnedBy($user)) {
+            return Response::deny();
+        }
+
+        return $event->hasOrdersBlockingDeletion()
+            ? Response::deny('支払い済みの注文があるため削除できません。')
+            : Response::allow();
     }
 
     /**
