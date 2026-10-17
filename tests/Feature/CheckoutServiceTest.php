@@ -65,12 +65,12 @@ test('creating a session sends the order items as JPY line items and saves the s
         ->and($request['url'])->toEndWith('/v1/checkout/sessions')
         ->and($request['params'])->toMatchArray([
             'mode' => 'payment',
-            'payment_method_types' => ['card'],
             'metadata' => ['order_id' => (string) $order->id],
             'success_url' => route('orders.complete', $order).'?session_id={CHECKOUT_SESSION_ID}',
             'cancel_url' => route('orders.cancel', $order),
             'expires_at' => now()->addMinutes(30)->addSeconds(30)->getTimestamp(),
         ])
+        ->and($request['params'])->not->toHaveKey('payment_method_types')
         ->and($request['params']['line_items'])->toEqualCanonicalizing([
             [
                 'price_data' => ['currency' => 'jpy', 'unit_amount' => 2500, 'product_data' => ['name' => '雪上ヨガ 一般']],
