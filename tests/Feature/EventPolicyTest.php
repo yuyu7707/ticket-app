@@ -2,6 +2,7 @@
 
 use App\Enums\EventStatus;
 use App\Models\Event;
+use App\Models\Order;
 use App\Models\User;
 use Illuminate\Support\Facades\Gate;
 
@@ -37,6 +38,15 @@ test('only the owner can update and delete the event', function (string $ability
     expect(Gate::forUser(User::factory()->organizer()->create())->allows($ability, $event))->toBeFalse();
     expect(Gate::forUser(User::factory()->admin()->create())->allows($ability, $event))->toBeFalse();
 })->with(['update', 'delete']);
+
+test('events with paid orders cannot be deleted even by the owner', function () {
+    $order = Order::factory()->paid()->create();
+
+    $response = Gate::forUser($order->event->organizer)->inspect('delete', $order->event);
+
+    expect($response->denied())->toBeTrue()
+        ->and($response->message())->toBe('支払い済みの注文があるため削除できません。');
+});
 
 test('only the owner can publish the event unless an admin has unpublished it', function () {
     $event = Event::factory()->create();

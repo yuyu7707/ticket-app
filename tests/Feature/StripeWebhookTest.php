@@ -5,6 +5,7 @@ use App\Mail\OrderPaidMail;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Ticket;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Testing\TestResponse;
@@ -94,6 +95,18 @@ test('the buyer receives one purchase mail even when the webhook is delivered tw
         return $mail->hasTo($this->order->user->email)
             && $mail->hasSubject("【まちチケ】チケットの購入が完了しました（{$this->order->event->title}）");
     });
+});
+
+test('a failed purchase mail is reported without failing the payment', function () {
+    Exceptions::fake();
+    Mail::shouldReceive('to')->andThrow(new RuntimeException('Mail server is down'));
+
+    postStripeWebhook($this->order)->assertOk();
+
+    expect($this->order->fresh()->status)->toBe(OrderStatus::Paid)
+        ->and(Ticket::count())->toBe(3);
+
+    Exceptions::assertReported(RuntimeException::class);
 });
 
 test('an unpaid session sends no purchase mail', function () {

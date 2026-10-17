@@ -64,11 +64,25 @@ class EventPolicy
     }
 
     /**
-     * Determine whether the user can delete the event.
+     * The orders and sales of an event, including the buyers' names and emails, are visible only to the owner and administrators.
      */
-    public function delete(User $user, Event $event): bool
+    public function viewOrders(User $user, Event $event): bool
     {
-        return $event->isOwnedBy($user);
+        return $event->isOwnedBy($user) || $user->isAdmin();
+    }
+
+    /**
+     * Owners can delete the event unless it has orders that must be kept, such as paid ones.
+     */
+    public function delete(User $user, Event $event): Response
+    {
+        if (! $event->isOwnedBy($user)) {
+            return Response::deny();
+        }
+
+        return $event->hasOrdersBlockingDeletion()
+            ? Response::deny('支払い済みの注文があるため削除できません。')
+            : Response::allow();
     }
 
     /**

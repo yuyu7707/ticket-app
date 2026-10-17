@@ -167,17 +167,11 @@ new #[Title('イベント編集')] class extends Component {
     }
 
     /**
-     * Delete the event along with its pending orders, unless it has orders that must be kept.
+     * Delete the event along with its pending orders. The policy refuses events with orders that must be kept.
      */
     public function deleteEvent(): void
     {
         $this->authorize('delete', $this->event);
-
-        if ($this->event->hasOrdersBlockingDeletion()) {
-            Flux::toast(variant: 'danger', text: '支払い済みの注文があるため削除できません。');
-
-            return;
-        }
 
         DB::transaction(function () {
             $this->event->orders()->whereIn('status', OrderStatus::discardable())->delete();
@@ -300,25 +294,29 @@ new #[Title('イベント編集')] class extends Component {
             <flux:subheading>削除すると元に戻せません。</flux:subheading>
         </div>
 
-        <flux:modal.trigger name="confirm-event-deletion">
-            <flux:button variant="danger" icon="trash">削除する</flux:button>
-        </flux:modal.trigger>
+        @can('delete', $event)
+            <flux:modal.trigger name="confirm-event-deletion">
+                <flux:button variant="danger" icon="trash">削除する</flux:button>
+            </flux:modal.trigger>
+
+            <flux:modal name="confirm-event-deletion" focusable class="max-w-lg">
+                <div class="space-y-6">
+                    <div>
+                        <flux:heading size="lg">「{{ $event->title }}」を削除しますか？</flux:heading>
+                        <flux:subheading>削除すると元に戻せません。</flux:subheading>
+                    </div>
+
+                    <div class="flex justify-end space-x-2 rtl:space-x-reverse">
+                        <flux:modal.close>
+                            <flux:button variant="filled">キャンセル</flux:button>
+                        </flux:modal.close>
+
+                        <flux:button variant="danger" wire:click="deleteEvent" data-test="confirm-delete-event-button">削除する</flux:button>
+                    </div>
+                </div>
+            </flux:modal>
+        @else
+            <flux:text>支払い済みの注文があるため削除できません。</flux:text>
+        @endcan
     </div>
-
-    <flux:modal name="confirm-event-deletion" focusable class="max-w-lg">
-        <div class="space-y-6">
-            <div>
-                <flux:heading size="lg">「{{ $event->title }}」を削除しますか？</flux:heading>
-                <flux:subheading>削除すると元に戻せません。</flux:subheading>
-            </div>
-
-            <div class="flex justify-end space-x-2 rtl:space-x-reverse">
-                <flux:modal.close>
-                    <flux:button variant="filled">キャンセル</flux:button>
-                </flux:modal.close>
-
-                <flux:button variant="danger" wire:click="deleteEvent" data-test="confirm-delete-event-button">削除する</flux:button>
-            </div>
-        </div>
-    </flux:modal>
 </section>

@@ -103,5 +103,9 @@ new #[Title('注文詳細')] class extends Component {
         </div>
     @endif
 
-    <flux:link :href="route('orders.index')" wire:navigate>マイチケットへ戻る</flux:link>
+    @if ($order->user_id === auth()->id())
+        <flux:link :href="route('orders.index')" wire:navigate>マイチケットへ戻る</flux:link>
+    @elseif (auth()->user()->can('viewOrders', $order->event))
+        <flux:link :href="route('organizer.events.orders', $order->event)" wire:navigate>注文と売上へ戻る</flux:link>
+    @endif
 </section>
