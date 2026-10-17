@@ -67,11 +67,20 @@ class TicketType extends Model
     }
 
     /**
-     * Get the number of tickets left: capacity minus paid orders and pending orders created within the hold minutes.
+     * Get the number of tickets left: capacity minus the held quantity.
      */
     public function remaining(): int
     {
-        $held = (int) $this->orderItems()
+        return max(0, $this->capacity - $this->heldQuantity());
+    }
+
+    /**
+     * Get the number of tickets held by paid orders and pending orders created within the hold minutes.
+     * A pending order can still be paid, so its tickets must stay within the capacity.
+     */
+    public function heldQuantity(): int
+    {
+        return (int) $this->orderItems()
             ->whereHas('order', function (Builder $query) {
                 $query->where('status', OrderStatus::Paid)
                     ->orWhere(fn (Builder $query) => $query
@@ -79,8 +88,6 @@ class TicketType extends Model
                         ->where('created_at', '>', now()->subMinutes(config('tickets.pending_hold_minutes'))));
             })
             ->sum('quantity');
-
-        return max(0, $this->capacity - $held);
     }
 
     /**

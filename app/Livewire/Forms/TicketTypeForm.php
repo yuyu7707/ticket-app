@@ -76,8 +76,8 @@ class TicketTypeForm extends Form
     {
         $component = $this->getComponent();
         $eventStartsAt = $component->event->starts_at;
-        $soldQuantity = $component->editingTicketTypeId !== null
-            ? ($component->event->ticketTypes()->find($component->editingTicketTypeId)?->soldQuantity() ?? 0)
+        $heldQuantity = $component->editingTicketTypeId !== null
+            ? ($component->event->ticketTypes()->find($component->editingTicketTypeId)?->heldQuantity() ?? 0)
             : 0;
 
         return [
@@ -88,9 +88,9 @@ class TicketTypeForm extends Form
                 'integer',
                 'min:1',
                 'max:100000',
-                function (string $attribute, mixed $value, Closure $fail) use ($soldQuantity) {
-                    if ((int) $value < $soldQuantity) {
-                        $fail("定員は販売済みの枚数（{$soldQuantity}枚）以上にしてください。");
+                function (string $attribute, mixed $value, Closure $fail) use ($heldQuantity) {
+                    if ((int) $value < $heldQuantity) {
+                        $fail("定員は販売済み・支払い手続き中の枚数（{$heldQuantity}枚）以上にしてください。");
                     }
                 },
             ],

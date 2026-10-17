@@ -150,28 +150,32 @@ test('ticket types with orders to keep cannot be deleted', function (OrderStatus
     'refunded' => [OrderStatus::Refunded],
 ]);
 
-test('the capacity cannot be lowered below the paid quantity', function () {
+test('the capacity cannot be lowered below the paid and still held pending quantity', function () {
     $event = Event::factory()->create(['starts_at' => '2026-12-01 10:00']);
-    $ticketType = TicketType::factory()->for($event)->create(['capacity' => 10]);
+    $ticketType = TicketType::factory()->for($event)->create(['capacity' => 20]);
     OrderItem::factory()->for(Order::factory()->paid()->for($event)->create())->for($ticketType)->create(['quantity' => 3]);
     OrderItem::factory()->for(Order::factory()->for($event)->create())->for($ticketType)->create(['quantity' => 5]);
+    OrderItem::factory()
+        ->for(Order::factory()->for($event)->create(['created_at' => now()->subMinutes(config('tickets.pending_hold_minutes') + 1)]))
+        ->for($ticketType)
+        ->create(['quantity' => 4]);
 
     $this->actingAs($event->organizer);
 
     $component = Livewire::test('pages::organizer.events.edit', ['event' => $event])
         ->call('editTicketType', $ticketType->id)
-        ->set('ticketTypeForm.capacity', '2')
+        ->set('ticketTypeForm.capacity', '7')
         ->call('saveTicketType')
         ->assertHasErrors(['ticketTypeForm.capacity'])
-        ->assertSee('定員は販売済みの枚数（3枚）以上にしてください。');
+        ->assertSee('定員は販売済み・支払い手続き中の枚数（8枚）以上にしてください。');
 
-    expect($ticketType->fresh()->capacity)->toBe(10);
+    expect($ticketType->fresh()->capacity)->toBe(20);
 
-    $component->set('ticketTypeForm.capacity', '3')
+    $component->set('ticketTypeForm.capacity', '8')
         ->call('saveTicketType')
         ->assertHasNoErrors();
 
-    expect($ticketType->fresh()->capacity)->toBe(3);
+    expect($ticketType->fresh()->capacity)->toBe(8);
 });
 
 test('the last ticket type of a published event cannot be deleted', function () {

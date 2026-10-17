@@ -56,6 +56,23 @@ test('the organizer menu shows the sold quantity and sales of each event', funct
         ->assertSee(route('organizer.events.orders', $this->event));
 });
 
+test('guests are redirected to the login page', function () {
+    $this->get(route('organizer.events.orders', $this->event))->assertRedirect(route('login'));
+});
+
+test('refunded and cancelled orders are not counted as sales', function (OrderStatus $status) {
+    $this->paidOrder->forceFill(['status' => $status])->save();
+
+    expect($this->event->soldQuantity())->toBe(0)
+        ->and($this->event->salesAmount())->toBe(0)
+        ->and(Event::withSales()->find($this->event->id)->salesAmount())->toBe(0)
+        ->and($this->event->ticketTypes->first()->soldQuantity())->toBe(0)
+        ->and($this->event->ticketTypes()->withSales()->first()->salesAmount())->toBe(0);
+})->with([
+    'refunded' => [OrderStatus::Refunded],
+    'cancelled' => [OrderStatus::Cancelled],
+]);
+
 test('the sold quantity and sales count only paid orders', function () {
     expect($this->event->soldQuantity())->toBe(2)
         ->and($this->event->salesAmount())->toBe(6000)

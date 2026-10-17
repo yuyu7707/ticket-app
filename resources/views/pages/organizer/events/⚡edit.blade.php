@@ -298,27 +298,25 @@ new #[Title('イベント編集')] class extends Component {
             <flux:modal.trigger name="confirm-event-deletion">
                 <flux:button variant="danger" icon="trash">削除する</flux:button>
             </flux:modal.trigger>
+
+            <flux:modal name="confirm-event-deletion" focusable class="max-w-lg">
+                <div class="space-y-6">
+                    <div>
+                        <flux:heading size="lg">「{{ $event->title }}」を削除しますか？</flux:heading>
+                        <flux:subheading>削除すると元に戻せません。</flux:subheading>
+                    </div>
+
+                    <div class="flex justify-end space-x-2 rtl:space-x-reverse">
+                        <flux:modal.close>
+                            <flux:button variant="filled">キャンセル</flux:button>
+                        </flux:modal.close>
+
+                        <flux:button variant="danger" wire:click="deleteEvent" data-test="confirm-delete-event-button">削除する</flux:button>
+                    </div>
+                </div>
+            </flux:modal>
         @else
             <flux:text>支払い済みの注文があるため削除できません。</flux:text>
         @endcan
     </div>
-
-    @can('delete', $event)
-        <flux:modal name="confirm-event-deletion" focusable class="max-w-lg">
-            <div class="space-y-6">
-                <div>
-                    <flux:heading size="lg">「{{ $event->title }}」を削除しますか？</flux:heading>
-                    <flux:subheading>削除すると元に戻せません。</flux:subheading>
-                </div>
-
-                <div class="flex justify-end space-x-2 rtl:space-x-reverse">
-                    <flux:modal.close>
-                        <flux:button variant="filled">キャンセル</flux:button>
-                    </flux:modal.close>
-
-                    <flux:button variant="danger" wire:click="deleteEvent" data-test="confirm-delete-event-button">削除する</flux:button>
-                </div>
-            </div>
-        </flux:modal>
-    @endcan
 </section>
