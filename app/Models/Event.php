@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Support\Carbon;
 
 /**
@@ -87,6 +88,28 @@ class Event extends Model
     }
 
     /**
+     * Get the order items of all orders placed for the event.
+     *
+     * @return HasManyThrough<OrderItem, Order, $this>
+     */
+    public function orderItems(): HasManyThrough
+    {
+        return $this->hasManyThrough(OrderItem::class, Order::class);
+    }
+
+    /**
+     * Scope a query to add the paid quantity and sales of each event as sold_quantity and sales_amount.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function withSales(Builder $query): void
+    {
+        $query->withSum(['orderItems as sold_quantity' => fn (Builder $query) => $query->where('orders.status', OrderStatus::Paid)], 'quantity')
+            ->withSum(['orders as sales_amount' => fn (Builder $query) => $query->where('status', OrderStatus::Paid)], 'total_amount');
+    }
+
+    /**
      * Scope a query to only include published events.
      *
      * @param  Builder<self>  $query
@@ -146,6 +169,30 @@ class Event extends Model
     public function hasOrdersBlockingDeletion(): bool
     {
         return $this->orders()->whereNotIn('status', OrderStatus::discardable())->exists();
+    }
+
+    /**
+     * Get the number of tickets sold in paid orders. Uses the value loaded by withSales() when present.
+     */
+    public function soldQuantity(): int
+    {
+        if (array_key_exists('sold_quantity', $this->attributes)) {
+            return (int) $this->attributes['sold_quantity'];
+        }
+
+        return (int) $this->orderItems()->where('orders.status', OrderStatus::Paid)->sum('quantity');
+    }
+
+    /**
+     * Get the sales in yen of paid orders. Uses the value loaded by withSales() when present.
+     */
+    public function salesAmount(): int
+    {
+        if (array_key_exists('sales_amount', $this->attributes)) {
+            return (int) $this->attributes['sales_amount'];
+        }
+
+        return (int) $this->orders()->where('status', OrderStatus::Paid)->sum('total_amount');
     }
 
     /**

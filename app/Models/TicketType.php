@@ -5,12 +5,14 @@ namespace App\Models;
 use App\Enums\OrderStatus;
 use Database\Factories\TicketTypeFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * @property int $id
@@ -79,6 +81,54 @@ class TicketType extends Model
             ->sum('quantity');
 
         return max(0, $this->capacity - $held);
+    }
+
+    /**
+     * Scope a query to add the paid quantity and sales of each ticket type as sold_quantity and sales_amount.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function withSales(Builder $query): void
+    {
+        $paid = fn (Builder $query) => $query->whereHas('order', fn (Builder $query) => $query->where('status', OrderStatus::Paid));
+
+        $query->withSum(['orderItems as sold_quantity' => $paid], 'quantity')
+            ->withSum(['orderItems as sales_amount' => $paid], DB::raw('unit_price * quantity'));
+    }
+
+    /**
+     * Get the number of tickets sold in paid orders. Uses the value loaded by withSales() when present.
+     */
+    public function soldQuantity(): int
+    {
+        if (array_key_exists('sold_quantity', $this->attributes)) {
+            return (int) $this->attributes['sold_quantity'];
+        }
+
+        return (int) $this->paidOrderItems()->sum('quantity');
+    }
+
+    /**
+     * Get the sales in yen of paid orders at the prices when they were placed. Uses the value loaded by withSales() when present.
+     */
+    public function salesAmount(): int
+    {
+        if (array_key_exists('sales_amount', $this->attributes)) {
+            return (int) $this->attributes['sales_amount'];
+        }
+
+        return (int) $this->paidOrderItems()->sum(DB::raw('unit_price * quantity'));
+    }
+
+    /**
+     * Get the order items of the ticket type in paid orders.
+     *
+     * @return HasMany<OrderItem, $this>
+     */
+    private function paidOrderItems(): HasMany
+    {
+        return $this->orderItems()->whereHas('order', fn (Builder $query) => $query->where('status', OrderStatus::Paid));
     }
 
     /**

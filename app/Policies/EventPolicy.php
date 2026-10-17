@@ -64,6 +64,14 @@ class EventPolicy
     }
 
     /**
+     * The orders and sales of an event, including the buyers' names and emails, are visible only to the owner and administrators.
+     */
+    public function viewOrders(User $user, Event $event): bool
+    {
+        return $event->isOwnedBy($user) || $user->isAdmin();
+    }
+
+    /**
      * Determine whether the user can delete the event.
      */
     public function delete(User $user, Event $event): bool
