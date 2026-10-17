@@ -56,6 +56,18 @@ class TicketTypeForm extends Form
     }
 
     /**
+     * "name" is shown as a person's name by default, so the form calls it the ticket type name.
+     *
+     * @return array<string, string>
+     */
+    protected function validationAttributes(): array
+    {
+        return [
+            'name' => '券種名',
+        ];
+    }
+
+    /**
      * Get the validation rules for the ticket type.
      *
      * @return array<string, array<int, mixed>>

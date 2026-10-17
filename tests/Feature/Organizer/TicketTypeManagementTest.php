@@ -213,6 +213,18 @@ test('ticket type input is validated', function (string $field, string $value, s
     'sales_end_at cannot be after the event starts' => ['sales_end_at', '2026-12-01T10:01', 'before_or_equal'],
 ]);
 
+test('ticket type errors call the name field the ticket type name', function () {
+    $event = Event::factory()->create(['starts_at' => '2026-12-01 10:00']);
+
+    $this->actingAs($event->organizer);
+
+    Livewire::test('pages::organizer.events.edit', ['event' => $event])
+        ->set('ticketTypeForm', validTicketTypeInput())
+        ->set('ticketTypeForm.name', '')
+        ->call('saveTicketType')
+        ->assertSee('券種名は必須項目です。');
+});
+
 test('sales end can be set without a sales start', function () {
     $event = Event::factory()->create(['starts_at' => '2026-12-01 10:00']);
 
