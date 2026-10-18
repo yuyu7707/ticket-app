@@ -40,7 +40,7 @@
 - 主催者は `events.organizer_id`、注文者は `orders.user_id`（どちらも `users.id`）。ロールは `users.role`
 - 状態とロールは `string` のカラム＋PHP の Enum（`UserRole`、`EventStatus`、`OrderStatus`）でキャストする
 - 金額は円の整数。明細には注文時点の単価（`order_items.unit_price`）を保存し、券種の価格を後から参照しない
-- 残り枚数はカラムに持たず毎回計算する: 定員 −（`paid` の枚数 + 作成から15分以内の `pending` の枚数）
+- 残り枚数はカラムに持たず毎回計算する: 定員 −（`paid` の枚数 + 作成から31分以内の `pending` の枚数）。31分は Stripe の決済ページの最短期限（30分）に合わせたもの
 - `paid` への更新は「`pending` のときだけ」の条件付き更新にする（Webhook と完了ページの二重処理でチケットを二重発行しない）
 - 外部キーは、記録を残すものは restrict（主催者・注文者・注文のイベント・明細の券種）、親の一部は cascade（券種・明細・チケット）
 - イベントの削除は、`paid` の注文が無いときだけ。`pending` の注文を消してから消す（トランザクション）
