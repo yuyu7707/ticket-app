@@ -22,6 +22,9 @@ class CheckoutService
      * The payment page closes 30 seconds before the order stops holding its tickets, so nobody can pay for
      * tickets that have already been released. Stripe needs at least 30 minutes, hence the hold of 31 minutes.
      *
+     * Stripe no longer accepts payment_method_types, so the payment methods come from the Stripe Dashboard.
+     * Only cards should be turned on there, because delayed methods such as konbini are paid after the hold ends.
+     *
      * @throws ApiErrorException
      */
     public function createSession(Order $order): string
@@ -30,8 +33,6 @@ class CheckoutService
 
         $session = $this->stripe->checkout->sessions->create([
             'mode' => 'payment',
-            // Delayed methods such as konbini are paid after the tickets are no longer held, so only cards are accepted.
-            'payment_method_types' => ['card'],
             'line_items' => $order->items->map(fn (OrderItem $item) => [
                 'price_data' => [
                     'currency' => 'jpy',

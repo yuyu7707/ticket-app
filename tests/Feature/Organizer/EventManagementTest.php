@@ -190,8 +190,10 @@ test('events with orders to keep cannot be deleted', function (array $statuses) 
     $this->actingAs($event->organizer);
 
     Livewire::test('pages::organizer.events.edit', ['event' => $event])
+        ->assertSee('支払い済みの注文があるため削除できません。')
+        ->assertDontSee('confirm-event-deletion')
         ->call('deleteEvent')
-        ->assertNoRedirect();
+        ->assertForbidden();
 
     expect($event->fresh())->not->toBeNull()
         ->and(Order::count())->toBe(count($statuses))

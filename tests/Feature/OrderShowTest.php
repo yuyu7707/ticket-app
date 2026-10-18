@@ -31,6 +31,19 @@ test('a pending order shows that the payment is not complete', function () {
         ->assertDontSee('チケットコード');
 });
 
+test('the event organizer and admins can see the order with a link back to the sales page', function (string $viewer) {
+    $order = Order::factory()->paid()->create();
+    OrderItem::factory()->for($order)->create();
+
+    $user = $viewer === 'organizer' ? $order->event->organizer : User::factory()->admin()->create();
+
+    $this->actingAs($user)
+        ->get(route('orders.show', $order))
+        ->assertOk()
+        ->assertSee(route('organizer.events.orders', $order->event))
+        ->assertDontSee('マイチケットへ戻る');
+})->with(['organizer', 'admin']);
+
 test('other users cannot see the order', function () {
     $order = Order::factory()->paid()->create();
 

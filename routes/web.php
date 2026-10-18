@@ -26,6 +26,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     }))->name('dashboard');
 });
 
+Route::middleware(['auth', 'verified'])->prefix('organizer')->name('organizer.')->group(function () {
+    Route::livewire('events/{event}/orders', 'pages::organizer.events.orders')->name('events.orders');
+});
+
 Route::middleware(['auth', 'verified', 'role:organizer'])->prefix('organizer')->name('organizer.')->group(function () {
     Route::livewire('events', 'pages::organizer.events.index')->name('events.index');
     Route::livewire('events/create', 'pages::organizer.events.create')->name('events.create');

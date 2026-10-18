@@ -3,6 +3,7 @@
 namespace App\Livewire\Forms;
 
 use App\Models\TicketType;
+use Closure;
 use Illuminate\Validation\Rule;
 use Livewire\Form;
 
@@ -55,18 +56,44 @@ class TicketTypeForm extends Form
     }
 
     /**
+     * "name" is shown as a person's name by default, so the form calls it the ticket type name.
+     *
+     * @return array<string, string>
+     */
+    protected function validationAttributes(): array
+    {
+        return [
+            'name' => '券種名',
+        ];
+    }
+
+    /**
      * Get the validation rules for the ticket type.
      *
      * @return array<string, array<int, mixed>>
      */
     protected function rules(): array
     {
-        $eventStartsAt = $this->getComponent()->event->starts_at;
+        $component = $this->getComponent();
+        $eventStartsAt = $component->event->starts_at;
+        $heldQuantity = $component->editingTicketTypeId !== null
+            ? ($component->event->ticketTypes()->find($component->editingTicketTypeId)?->heldQuantity() ?? 0)
+            : 0;
 
         return [
             'name' => ['required', 'string', 'max:50'],
             'price' => ['required', 'integer', 'min:0', 'max:1000000'],
-            'capacity' => ['required', 'integer', 'min:1', 'max:100000'],
+            'capacity' => [
+                'required',
+                'integer',
+                'min:1',
+                'max:100000',
+                function (string $attribute, mixed $value, Closure $fail) use ($heldQuantity) {
+                    if ((int) $value < $heldQuantity) {
+                        $fail("定員は販売済み・支払い手続き中の枚数（{$heldQuantity}枚）以上にしてください。");
+                    }
+                },
+            ],
             'sales_start_at' => ['nullable', 'date'],
             'sales_end_at' => [
                 'nullable',
